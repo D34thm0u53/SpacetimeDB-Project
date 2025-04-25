@@ -1,3 +1,5 @@
+use std::sync::mpsc::Sender;
+
 use spacetimedb::{table, reducer, Table, ReducerContext, Identity, Timestamp};
 
 /*
@@ -9,10 +11,19 @@ Define our Tables
 #[table(name = user, public)]
 pub struct User {
     #[primary_key]
-    pub identity: Identity,
-    pub username: String,
-    pub online: bool,
-    pub last_seen: Timestamp,
+    identity: Identity,
+    username: String,
+    online: bool,
+    last_seen: Timestamp,
+}
+
+// Store User Roles
+#[table(name = roles, private)]
+pub struct Roles {
+    #[primary_key]
+    identity: Identity,
+    is_administrator: bool, 
+    is_moderator: bool,
 }
 
 // Store current location of users
@@ -36,7 +47,7 @@ pub fn client_connected(ctx: &ReducerContext) {
     } 
     else {
         //this is a new user, so we need to create one.
-        log::info!("New User created, set initial username to {}", ctx.sender);
+        log::trace!("New User created, set initial username to {}", ctx.sender);
         ctx.db.user().insert(User {
             username: ctx.sender.to_string(),
             identity: ctx.sender,
@@ -70,7 +81,7 @@ fn set_user_name(ctx: &ReducerContext, username: String) -> Result<(), String> {
     let username = username.trim().to_string();
     let username = validate_name(username)?;
     if let Some(user) = ctx.db.user().identity().find(ctx.sender) {
-        log::info!("User {:?} requested update username to: {}", ctx.sender, username);
+        log::debug!("User {:?} requested update username to: {}", ctx.sender, username);
         ctx.db.user().identity().update(User { username, ..user });
         Ok(())
     }
@@ -134,8 +145,17 @@ fn validate_name(username: String) -> Result<String, String> {
     }
 }
 
+
+
 // Moderator Name Management
-fn set_user_name_override(ctx: &ReducerContext, username: String, user_identity: Identity) -> Result<(), String> {
+fn _set_user_name_override(ctx: &ReducerContext, username: String, user_identity: Identity) -> Result<(), String> {
+    if let Some(roles) = ctx.db.roles().identity().find(ctx.sender) {
+        if !roles.is_moderator && !roles.is_administrator {
+            return Err("Only moderators can set names for other users".to_string());
+        } else {
+        }
+    }
+
     let username = username.trim().to_string(); // Even for moderators, we need to ensure there is no whitespace in the name.
     // They however get away wioth a few more characters and can try break stuff
     if let Some(user) = ctx.db.user().identity().find(user_identity) {
@@ -154,9 +174,8 @@ fn set_user_name_override(ctx: &ReducerContext, username: String, user_identity:
 #[reducer]
 // Called when a client updates their position in the SpacetimeDB
 pub fn update_position(ctx: &ReducerContext, x: f64, y: f64, z: f64) {
-    log::info!("PositionUpdateCalled");
     if let Some(_identity) = ctx.db.position().identity().find(ctx.sender) {
-        log::info!(
+        log::trace!(
             "User {:?} updated position to: ({}, {}, {})",
             ctx.sender, x, y, z
         );

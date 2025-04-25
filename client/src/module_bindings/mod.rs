@@ -5,9 +5,11 @@
 use spacetimedb_sdk::__codegen::{self as __sdk, __lib, __sats, __ws};
 
 pub mod client_connected_reducer;
-pub mod identity_disconnected_reducer;
+pub mod client_disconnected_reducer;
 pub mod position_table;
 pub mod position_type;
+pub mod roles_table;
+pub mod roles_type;
 pub mod set_user_name_reducer;
 pub mod update_position_reducer;
 pub mod user_table;
@@ -16,11 +18,13 @@ pub mod user_type;
 pub use client_connected_reducer::{
     client_connected, set_flags_for_client_connected, ClientConnectedCallbackId,
 };
-pub use identity_disconnected_reducer::{
-    identity_disconnected, set_flags_for_identity_disconnected, IdentityDisconnectedCallbackId,
+pub use client_disconnected_reducer::{
+    client_disconnected, set_flags_for_client_disconnected, ClientDisconnectedCallbackId,
 };
 pub use position_table::*;
 pub use position_type::Position;
+pub use roles_table::*;
+pub use roles_type::Roles;
 pub use set_user_name_reducer::{
     set_flags_for_set_user_name, set_user_name, SetUserNameCallbackId,
 };
@@ -39,7 +43,7 @@ pub use user_type::User;
 
 pub enum Reducer {
     ClientConnected,
-    IdentityDisconnected,
+    ClientDisconnected,
     SetUserName { username: String },
     UpdatePosition { x: f64, y: f64, z: f64 },
 }
@@ -52,7 +56,7 @@ impl __sdk::Reducer for Reducer {
     fn reducer_name(&self) -> &'static str {
         match self {
             Reducer::ClientConnected => "client_connected",
-            Reducer::IdentityDisconnected => "identity_disconnected",
+            Reducer::ClientDisconnected => "client_disconnected",
             Reducer::SetUserName { .. } => "set_user_name",
             Reducer::UpdatePosition { .. } => "update_position",
         }
@@ -66,9 +70,9 @@ impl TryFrom<__ws::ReducerCallInfo<__ws::BsatnFormat>> for Reducer {
                 client_connected_reducer::ClientConnectedArgs,
             >("client_connected", &value.args)?
             .into()),
-            "identity_disconnected" => Ok(__sdk::parse_reducer_args::<
-                identity_disconnected_reducer::IdentityDisconnectedArgs,
-            >("identity_disconnected", &value.args)?
+            "client_disconnected" => Ok(__sdk::parse_reducer_args::<
+                client_disconnected_reducer::ClientDisconnectedArgs,
+            >("client_disconnected", &value.args)?
             .into()),
             "set_user_name" => Ok(__sdk::parse_reducer_args::<
                 set_user_name_reducer::SetUserNameArgs,
@@ -93,6 +97,7 @@ impl TryFrom<__ws::ReducerCallInfo<__ws::BsatnFormat>> for Reducer {
 #[doc(hidden)]
 pub struct DbUpdate {
     position: __sdk::TableUpdate<Position>,
+    roles: __sdk::TableUpdate<Roles>,
     user: __sdk::TableUpdate<User>,
 }
 
@@ -105,6 +110,7 @@ impl TryFrom<__ws::DatabaseUpdate<__ws::BsatnFormat>> for DbUpdate {
                 "position" => {
                     db_update.position = position_table::parse_table_update(table_update)?
                 }
+                "roles" => db_update.roles = roles_table::parse_table_update(table_update)?,
                 "user" => db_update.user = user_table::parse_table_update(table_update)?,
 
                 unknown => {
@@ -135,6 +141,9 @@ impl __sdk::DbUpdate for DbUpdate {
         diff.position = cache
             .apply_diff_to_table::<Position>("position", &self.position)
             .with_updates_by_pk(|row| &row.identity);
+        diff.roles = cache
+            .apply_diff_to_table::<Roles>("roles", &self.roles)
+            .with_updates_by_pk(|row| &row.identity);
         diff.user = cache
             .apply_diff_to_table::<User>("user", &self.user)
             .with_updates_by_pk(|row| &row.identity);
@@ -148,6 +157,7 @@ impl __sdk::DbUpdate for DbUpdate {
 #[doc(hidden)]
 pub struct AppliedDiff<'r> {
     position: __sdk::TableAppliedDiff<'r, Position>,
+    roles: __sdk::TableAppliedDiff<'r, Roles>,
     user: __sdk::TableAppliedDiff<'r, User>,
 }
 
@@ -162,6 +172,7 @@ impl<'r> __sdk::AppliedDiff<'r> for AppliedDiff<'r> {
         callbacks: &mut __sdk::DbCallbacks<RemoteModule>,
     ) {
         callbacks.invoke_table_row_callbacks::<Position>("position", &self.position, event);
+        callbacks.invoke_table_row_callbacks::<Roles>("roles", &self.roles, event);
         callbacks.invoke_table_row_callbacks::<User>("user", &self.user, event);
     }
 }
@@ -739,6 +750,7 @@ impl __sdk::SpacetimeModule for RemoteModule {
 
     fn register_tables(client_cache: &mut __sdk::ClientCache<Self>) {
         position_table::register_table(client_cache);
+        roles_table::register_table(client_cache);
         user_table::register_table(client_cache);
     }
 }

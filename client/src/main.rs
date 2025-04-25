@@ -26,7 +26,7 @@ fn main() {
 const HOST: &str = "http://localhost:3000";
 
 /// The database name we chose when we published our module.
-const DB_NAME: &str = "benchmark";
+const DB_NAME: &str = "multiuserpositions";
 
 
 
@@ -54,7 +54,7 @@ fn connect_to_db() -> DbConnection {
 
 
 fn creds_store() -> credentials::File {
-    credentials::File::new("benchmark")
+    credentials::File::new("multiuserpositions")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.
@@ -128,9 +128,11 @@ fn user_input_loop(ctx: &DbConnection) {
             panic!("Failed to read from stdin.");
         };
         if let Some(username) = line.strip_prefix("/setname " ) {
-            ctx.reducers.set_user_name(username.to_string()).unwrap();
+            if let Err(e) = ctx.reducers.set_user_name(username.to_string()) {
+                eprintln!("Error setting user name: {:?}", e);
+            }
         }
-        if let Some(username) = line.strip_prefix("/setpos " ) {
+        if let Some(_username) = line.strip_prefix("/setpos " ) {
             loop {
                 // Wait for a short time before sending the next position update.
                 thread::sleep(Duration::from_millis(5));
@@ -139,7 +141,9 @@ fn user_input_loop(ctx: &DbConnection) {
                 let dx = rng.random_range(-3.0..=3.0);
                 let dy = rng.random_range(-3.0..=3.0);
                 let dz = rng.random_range(-3.0..=3.0);
-                ctx.reducers.update_position(dx, dy, dz);
+                if let Err(e) = ctx.reducers.update_position(dx, dy, dz) {
+                    eprintln!("Error updating position: {:?}", e);
+                }
             }
         }
     }
