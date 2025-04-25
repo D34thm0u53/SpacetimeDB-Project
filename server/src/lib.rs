@@ -1,5 +1,4 @@
 use spacetimedb::{table, reducer, Table, ReducerContext, Identity, Timestamp};
-use std::time::Duration;
 
 /*
 Define our Tables
@@ -156,7 +155,7 @@ fn set_user_name_override(ctx: &ReducerContext, username: String, user_identity:
 // Called when a client updates their position in the SpacetimeDB
 pub fn update_position(ctx: &ReducerContext, x: f64, y: f64, z: f64) {
     log::info!("PositionUpdateCalled");
-    if let Some(user) = ctx.db.position().identity().find(ctx.sender) {
+    if let Some(_identity) = ctx.db.position().identity().find(ctx.sender) {
         log::info!(
             "User {:?} updated position to: ({}, {}, {})",
             ctx.sender, x, y, z
