@@ -1,11 +1,10 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Event, Identity, Status, Table, TableWithPrimaryKey};
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table, TableWithPrimaryKey};
 use rand::Rng;
 use std::thread;
 use std::time::Duration;
-use std::sync::Arc;
 
 fn main() {
     // Connect to the database
@@ -13,6 +12,9 @@ fn main() {
 
     // Register callbacks to run in response to database events.
     register_callbacks(&ctx);
+
+     // Subscribe to SQL queries in order to construct a local partial replica of the database.
+     subscribe_to_tables(&ctx);
 
     // Spawn a thread, where the connection will process messages and invoke callbacks.
     ctx.run_threaded();
@@ -64,8 +66,6 @@ fn on_connected(_ctx: &DbConnection, _identity: Identity, token: &str) {
     }
 }
 
-
-
 /// Our `on_connect_error` callback: print the error, then exit the process.
 fn on_connect_error(_ctx: &ErrorContext, err: Error) {
     eprintln!("Connection error: {:?}", err);
@@ -91,7 +91,7 @@ fn register_callbacks(ctx: &DbConnection) {
     // When a user's status changes, print a notification.
     ctx.db.user().on_update(on_user_updated);
 
-    // When we fail to set our name, print a warning.
+    ctx.db.position().on_update(on_user_position_updated);
 
 }
 
@@ -100,8 +100,6 @@ fn on_user_inserted(_ctx: &EventContext, user: &User) {
         println!("User {} connected.", user.username);
     }
 }
-
-
 
 fn on_user_updated(_ctx: &EventContext, old: &User, new: &User) {
     if old.username != new.username {
@@ -119,6 +117,38 @@ fn on_user_updated(_ctx: &EventContext, old: &User, new: &User) {
     }
 }
 
+fn on_user_position_updated(_ctx: &EventContext, old: &Position, new: &Position) {
+    let dx = new.x - old.x;
+    let dy = new.y - old.y;
+    let dz = new.z - old.z;
+    println!(
+        "User {} moved: Δx = {}, Δy = {}, Δz = {}",
+        new.identity, dx, dy, dz
+    );
+}
+
+
+
+fn subscribe_to_tables(ctx: &DbConnection) {
+    ctx.subscription_builder()
+        .on_applied(on_sub_applied)
+        .on_error(on_sub_error)
+        .subscribe(["SELECT * FROM position"]);
+}
+
+fn on_sub_applied(ctx: &SubscriptionEventContext) {
+    println!("Fully connected and all subscriptions applied.");
+    println!("Use /name to set your name, or type a message!");
+}
+
+/// Or `on_error` callback:
+/// print the error, then exit the process.
+fn on_sub_error(_ctx: &ErrorContext, err: Error) {
+    eprintln!("Subscription failed: {}", err);
+    std::process::exit(1);
+}
+
+
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
 fn user_input_loop(ctx: &DbConnection) {
@@ -132,19 +162,22 @@ fn user_input_loop(ctx: &DbConnection) {
                 eprintln!("Error setting user name: {:?}", e);
             }
         }
-        if let Some(_username) = line.strip_prefix("/setpos " ) {
-            loop {
-                // Wait for a short time before sending the next position update.
-                thread::sleep(Duration::from_millis(5));
+        if let Some(_username) = line.strip_prefix("/random" ) {
+            let end_time = std::time::Instant::now() + std::time::Duration::from_secs(1);
+            let mut operation_count = 0;
+            while std::time::Instant::now() < end_time {
                 // Generate random position updates
                 let mut rng = rand::rng();
-                let dx = rng.random_range(-3.0..=3.0);
-                let dy = rng.random_range(-3.0..=3.0);
-                let dz = rng.random_range(-3.0..=3.0);
+                let dx = rng.random_range(-2.0..=10.0);
+                let dy = rng.random_range(-2.0..=10.0);
+                let dz = rng.random_range(-10.0..=10.0);
                 if let Err(e) = ctx.reducers.update_position(dx, dy, dz) {
                     eprintln!("Error updating position: {:?}", e);
+                } else {
+                    operation_count += 1;
                 }
             }
+            println!("Number of operations performed: {}", operation_count);
         }
     }
 }

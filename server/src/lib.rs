@@ -174,9 +174,34 @@ fn _set_user_name_override(ctx: &ReducerContext, username: String, user_identity
 #[reducer]
 // Called when a client updates their position in the SpacetimeDB
 pub fn update_position(ctx: &ReducerContext, x: f64, y: f64, z: f64) {
-    if let Some(_identity) = ctx.db.position().identity().find(ctx.sender) {
+    if let Some(position) = ctx.db.position().identity().find(ctx.sender) {
         log::trace!(
             "User {:?} updated position to: ({}, {}, {})",
+            ctx.sender, x, y, z
+        );
+        let x = position.x + x;
+        let y = position.y + y;
+        let z = position.z + z;
+
+        ctx.db.position().identity().update(Position { x, y, z, ..position });
+    }
+    else {
+        // Insert a new position for the user
+        ctx.db.position().insert(Position {
+            identity: ctx.sender,
+            x,
+            y,
+            z,
+        });
+    }
+}
+
+#[reducer]
+// Called when a client updates their position in the SpacetimeDB
+pub fn set_position(ctx: &ReducerContext, x: f64, y: f64, z: f64) {
+    if let Some(_identity) = ctx.db.position().identity().find(ctx.sender) {
+        log::trace!(
+            "User {:?} used position override to: ({}, {}, {})",
             ctx.sender, x, y, z
         );
         ctx.db.position().identity().update(Position { x, y, z, identity: ctx.sender });
@@ -191,3 +216,4 @@ pub fn update_position(ctx: &ReducerContext, x: f64, y: f64, z: f64) {
         });
     }
 }
+
