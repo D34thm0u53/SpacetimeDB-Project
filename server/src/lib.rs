@@ -1,11 +1,18 @@
-use std::sync::mpsc::Sender;
-
 use spacetimedb::{table, reducer, Table, ReducerContext, Identity, Timestamp};
 
 /*
 Define our Tables
 
 */
+
+// Intentionally private
+#[spacetimedb::table(name = update_config)]
+pub struct UpdateConfig {
+    #[unique]
+    id: u32,
+    value: i32,
+}
+
 
 // Store User Profiles
 #[table(name = user, public)]
@@ -27,6 +34,15 @@ pub struct Roles {
 }
 
 // Store current location of users
+#[table(name = chunk, public)]
+pub struct Chunk {
+    #[primary_key]
+    identity: Identity,
+    x: u32,
+    y: u32,
+}
+
+// Store current location of users
 #[table(name = position, public)]
 pub struct Position {
     #[primary_key]
@@ -35,6 +51,176 @@ pub struct Position {
     y: f64,
     z: f64,
 }
+
+
+// Structure for the internal entity position table
+// This table is used to store the position of entities in the game world.
+// It is not intended to be accessed directly by clients, hence the private access modifier.
+
+// Intentionally private
+#[spacetimedb::table(name = internal_entity_position, private)]
+pub struct InternalEntityPosition {
+    #[unique]
+    pub id: u32,
+    pub transform: StdbTransform,
+}
+
+// Structure for the internal entity Transform table
+#[spacetimedb::table(name = stdb_transform, private)]
+#[derive(Clone)]
+pub struct StdbTransform {
+    position: StdbPosition,
+    rotation: StdbRotation,
+}
+
+// Structure for the internal entity position table
+#[spacetimedb::table(name = stdb_position, private)]
+#[derive(Clone)]
+pub struct StdbPosition {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+// Structure for the internal entity rotation table
+#[spacetimedb::table(name = stdb_rotation, private)]
+#[derive(Clone)]
+pub struct StdbRotation {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
+}
+
+#[spacetimedb::table(name = entity, public)]
+pub struct Entity {
+    #[unique]
+    id: u32,
+    #[unique]
+    identity: Identity,
+    #[unique]
+    username: String,
+}
+
+// Structure for the table containing the scheduled update position timer
+#[spacetimedb::table(name = update_position_timer, scheduled(update_all_positions))]
+pub struct UpdatePositionTimer {
+    #[primary_key]
+    #[auto_inc]
+    scheduled_id: u64,
+    scheduled_at: spacetimedb::ScheduleAt,
+}
+
+// We'll update this table 20 times per second
+#[spacetimedb::table(name = entity_position_hr, public)]
+pub struct EntityPositionHR {
+    #[unique]
+    pub id: u32,
+    pub transform: StdbTransform,
+}
+    
+// We'll only update this table 5 times per second
+#[spacetimedb::table(name = entity_position_lr, public)]
+pub struct EntityPositionLR {
+    #[unique]
+    pub id: u32,
+    // You could make other types here which use f16 or another
+    // representation to save even more space
+    pub transform: StdbTransform,
+}
+
+#[spacetimedb::reducer]
+pub fn update_position(ctx: &ReducerContext, transform: StdbTransform) {
+    // We'll update this user's internal position, not their public position
+    let entity = ctx.db.entity().identity().find(ctx.sender).unwrap();
+    if ctx
+        .db
+        .internal_entity_position()
+        .id()
+        .find(entity.id)
+        .is_some()
+    {
+        ctx.db
+            .internal_entity_position()
+            .id()
+            .update(InternalEntityPosition {
+                id: entity.id,
+                transform,
+            });
+    } else {
+        ctx.db
+            .internal_entity_position()
+            .insert(InternalEntityPosition {
+                id: entity.id,
+                transform,
+            });
+    }
+}
+
+#[spacetimedb::reducer]
+pub fn update_all_positions(ctx: &ReducerContext, _arg: UpdatePositionTimer) {
+    // We're using this value to determine whether or not to update the lower resolution table.
+    // Here we're doing a 4:1 ratio (4 high resolution updates for every 1 low resolution update)
+    let mut update = ctx.db.update_config().id().find(0).unwrap();
+    // Only let SpacetimeDB call this function
+    if ctx.sender != ctx.identity() {
+        panic!("wrong owner! This reducer can only be called by SpacetimeDB!");
+    }
+
+    let low_resolution = update.value == 0;
+    // Update the value in the config table
+    update.value = (update.value + 1) % 4;
+    ctx.db.update_config().id().update(update);
+
+
+    // Clear all high res positions
+    for row in ctx.db.entity_position_hr().iter() {
+        ctx.db.entity_position_hr().id().delete(row.id);
+    }
+
+    if low_resolution {
+        // Clear all low res positions
+        for row in ctx.db.entity_position_lr().iter() {
+            ctx.db.entity_position_lr().id().delete(row.id);
+        }
+    }
+
+    // Update all high res positions
+    for row in ctx.db.internal_entity_position().iter() {
+        ctx.db.entity_position_hr().insert(EntityPositionHR {
+            id: row.id,
+            transform: row.transform.clone(),
+        });
+
+        if low_resolution {
+            ctx.db.entity_position_hr().insert(EntityPositionHR {
+                id: row.id,
+                transform: row.transform,
+            });
+        }
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -55,7 +241,6 @@ pub fn client_connected(ctx: &ReducerContext) {
             last_seen: ctx.timestamp,
         });
         //for all new users, also create a row in the position table
-        update_position(ctx,0.0,0.0,0.0);
     }
 }
 
@@ -171,30 +356,51 @@ fn _set_user_name_override(ctx: &ReducerContext, username: String, user_identity
 }
 
 
-#[reducer]
-// Called when a client updates their position in the SpacetimeDB
-pub fn update_position(ctx: &ReducerContext, x: f64, y: f64, z: f64) {
-    if let Some(position) = ctx.db.position().identity().find(ctx.sender) {
-        log::trace!(
-            "User {:?} updated position to: ({}, {}, {})",
-            ctx.sender, x, y, z
-        );
-        let x = position.x + x;
-        let y = position.y + y;
-        let z = position.z + z;
 
-        ctx.db.position().identity().update(Position { x, y, z, ..position });
+
+pub fn is_crossing_chunk(ctx: &ReducerContext, x: f64, y: f64, z: f64) -> bool {
+    if let Some(position) = ctx.db.position().identity().find(ctx.sender) {
+        let dx = position.x - x;
+        let dy = position.y - y;
+        let dz = position.z - z;
+
+        if dx.abs() > 1.0 || dy.abs() > 1.0 || dz.abs() > 1.0 {
+            return true;
+        }
+    }
+    false
+}
+
+pub fn get_position(ctx: &ReducerContext) -> Option<(f64, f64, f64)> {
+    if let Some(position) = ctx.db.position().identity().find(ctx.sender) {
+        Some((position.x, position.y, position.z))
     }
     else {
-        // Insert a new position for the user
-        ctx.db.position().insert(Position {
-            identity: ctx.sender,
-            x,
-            y,
-            z,
-        });
+        None
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 #[reducer]
 // Called when a client updates their position in the SpacetimeDB

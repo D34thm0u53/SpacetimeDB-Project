@@ -3,8 +3,6 @@ use module_bindings::*;
 
 use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table, TableWithPrimaryKey};
 use rand::Rng;
-use std::thread;
-use std::time::Duration;
 
 fn main() {
     // Connect to the database
@@ -21,7 +19,6 @@ fn main() {
 
     // Handle CLI input
     user_input_loop(&ctx);
-
 }
 
 /// The URI of the SpacetimeDB instance hosting our chat database and module.
@@ -74,58 +71,39 @@ fn on_connect_error(_ctx: &ErrorContext, err: Error) {
 
 /// Our `on_disconnect` callback: print a note, then exit the process.
 fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
-    if let Some(err) = err {
-        eprintln!("Disconnected: {}", err);
-        std::process::exit(1);
-    } else {
-        println!("Disconnected.");
-        std::process::exit(0);
+    match err {
+        Some(err) => {
+            eprintln!("Disconnected: {}", err);
+            std::process::exit(1);
+        }
+        None => {
+            println!("Disconnected gracefully.");
+            // Perform any necessary cleanup here
+            // For example: ctx.cleanup() or similar logic if applicable
+            std::process::exit(0); // Optionally replace this with a return or other logic
+        }
     }
 }
 
 /// Register all the callbacks our app will use to respond to database events.
 fn register_callbacks(ctx: &DbConnection) {
-    // When a new user joins, print a notification.
-    ctx.db.user().on_insert(on_user_inserted);
-
-    // When a user's status changes, print a notification.
-    ctx.db.user().on_update(on_user_updated);
-
+    // Register a callback on the positiontable to be used on position updates
     ctx.db.position().on_update(on_user_position_updated);
 
-}
-
-fn on_user_inserted(_ctx: &EventContext, user: &User) {
-    if user.online {
-        println!("User {} connected.", user.username);
-    }
-}
-
-fn on_user_updated(_ctx: &EventContext, old: &User, new: &User) {
-    if old.username != new.username {
-        println!(
-            "User {} renamed to {}.",
-            (old.username),
-            (new.username)
-        );
-    }
-    if old.online && !new.online {
-        println!("User {} disconnected.", (new.username));
-    }
-    if !old.online && new.online {
-        println!("User {} connected.", (new.username));
-    }
 }
 
 fn on_user_position_updated(_ctx: &EventContext, old: &Position, new: &Position) {
     let dx = new.x - old.x;
     let dy = new.y - old.y;
     let dz = new.z - old.z;
-    println!(
-        "User {} moved: Δx = {}, Δy = {}, Δz = {}",
-        new.identity, dx, dy, dz
-    );
+    if false {
+        println!(
+            "User {} moved: Δx = {}, Δy = {}, Δz = {}",
+            new.identity, dx, dy, dz
+        );
+    }
 }
+    
 
 
 
@@ -171,11 +149,6 @@ fn user_input_loop(ctx: &DbConnection) {
                 let dx = rng.random_range(-2.0..=10.0);
                 let dy = rng.random_range(-2.0..=10.0);
                 let dz = rng.random_range(-10.0..=10.0);
-                if let Err(e) = ctx.reducers.update_position(dx, dy, dz) {
-                    eprintln!("Error updating position: {:?}", e);
-                } else {
-                    operation_count += 1;
-                }
             }
             println!("Number of operations performed: {}", operation_count);
         }

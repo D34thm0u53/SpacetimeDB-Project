@@ -4,33 +4,79 @@
 #![allow(unused, clippy::all)]
 use spacetimedb_sdk::__codegen::{self as __sdk, __lib, __sats, __ws};
 
+pub mod chunk_table;
+pub mod chunk_type;
 pub mod client_connected_reducer;
 pub mod client_disconnected_reducer;
+pub mod entity_position_hr_table;
+pub mod entity_position_hr_type;
+pub mod entity_position_lr_table;
+pub mod entity_position_lr_type;
+pub mod entity_table;
+pub mod entity_type;
+pub mod internal_entity_position_table;
+pub mod internal_entity_position_type;
 pub mod position_table;
 pub mod position_type;
 pub mod roles_table;
 pub mod roles_type;
+pub mod set_position_reducer;
 pub mod set_user_name_reducer;
+pub mod stdb_position_table;
+pub mod stdb_position_type;
+pub mod stdb_rotation_table;
+pub mod stdb_rotation_type;
+pub mod stdb_transform_table;
+pub mod stdb_transform_type;
+pub mod update_all_positions_reducer;
+pub mod update_config_table;
+pub mod update_config_type;
 pub mod update_position_reducer;
+pub mod update_position_timer_table;
+pub mod update_position_timer_type;
 pub mod user_table;
 pub mod user_type;
 
+pub use chunk_table::*;
+pub use chunk_type::Chunk;
 pub use client_connected_reducer::{
     client_connected, set_flags_for_client_connected, ClientConnectedCallbackId,
 };
 pub use client_disconnected_reducer::{
     client_disconnected, set_flags_for_client_disconnected, ClientDisconnectedCallbackId,
 };
+pub use entity_position_hr_table::*;
+pub use entity_position_hr_type::EntityPositionHr;
+pub use entity_position_lr_table::*;
+pub use entity_position_lr_type::EntityPositionLr;
+pub use entity_table::*;
+pub use entity_type::Entity;
+pub use internal_entity_position_table::*;
+pub use internal_entity_position_type::InternalEntityPosition;
 pub use position_table::*;
 pub use position_type::Position;
 pub use roles_table::*;
 pub use roles_type::Roles;
+pub use set_position_reducer::{set_flags_for_set_position, set_position, SetPositionCallbackId};
 pub use set_user_name_reducer::{
     set_flags_for_set_user_name, set_user_name, SetUserNameCallbackId,
 };
+pub use stdb_position_table::*;
+pub use stdb_position_type::StdbPosition;
+pub use stdb_rotation_table::*;
+pub use stdb_rotation_type::StdbRotation;
+pub use stdb_transform_table::*;
+pub use stdb_transform_type::StdbTransform;
+pub use update_all_positions_reducer::{
+    set_flags_for_update_all_positions, update_all_positions, UpdateAllPositionsCallbackId,
+};
+pub use update_config_table::*;
+pub use update_config_type::UpdateConfig;
 pub use update_position_reducer::{
     set_flags_for_update_position, update_position, UpdatePositionCallbackId,
 };
+pub use update_position_timer_table::*;
+pub use update_position_timer_type::UpdatePositionTimer;
 pub use user_table::*;
 pub use user_type::User;
 
@@ -44,8 +90,10 @@ pub use user_type::User;
 pub enum Reducer {
     ClientConnected,
     ClientDisconnected,
+    SetPosition { x: f64, y: f64, z: f64 },
     SetUserName { username: String },
-    UpdatePosition { x: f64, y: f64, z: f64 },
+    UpdateAllPositions { arg: UpdatePositionTimer },
+    UpdatePosition { transform: StdbTransform },
 }
 
 impl __sdk::InModule for Reducer {
@@ -57,7 +105,9 @@ impl __sdk::Reducer for Reducer {
         match self {
             Reducer::ClientConnected => "client_connected",
             Reducer::ClientDisconnected => "client_disconnected",
+            Reducer::SetPosition { .. } => "set_position",
             Reducer::SetUserName { .. } => "set_user_name",
+            Reducer::UpdateAllPositions { .. } => "update_all_positions",
             Reducer::UpdatePosition { .. } => "update_position",
         }
     }
@@ -74,9 +124,20 @@ impl TryFrom<__ws::ReducerCallInfo<__ws::BsatnFormat>> for Reducer {
                 client_disconnected_reducer::ClientDisconnectedArgs,
             >("client_disconnected", &value.args)?
             .into()),
+            "set_position" => Ok(
+                __sdk::parse_reducer_args::<set_position_reducer::SetPositionArgs>(
+                    "set_position",
+                    &value.args,
+                )?
+                .into(),
+            ),
             "set_user_name" => Ok(__sdk::parse_reducer_args::<
                 set_user_name_reducer::SetUserNameArgs,
             >("set_user_name", &value.args)?
+            .into()),
+            "update_all_positions" => Ok(__sdk::parse_reducer_args::<
+                update_all_positions_reducer::UpdateAllPositionsArgs,
+            >("update_all_positions", &value.args)?
             .into()),
             "update_position" => Ok(__sdk::parse_reducer_args::<
                 update_position_reducer::UpdatePositionArgs,
@@ -96,8 +157,18 @@ impl TryFrom<__ws::ReducerCallInfo<__ws::BsatnFormat>> for Reducer {
 #[allow(non_snake_case)]
 #[doc(hidden)]
 pub struct DbUpdate {
+    chunk: __sdk::TableUpdate<Chunk>,
+    entity: __sdk::TableUpdate<Entity>,
+    entity_position_hr: __sdk::TableUpdate<EntityPositionHr>,
+    entity_position_lr: __sdk::TableUpdate<EntityPositionLr>,
+    internal_entity_position: __sdk::TableUpdate<InternalEntityPosition>,
     position: __sdk::TableUpdate<Position>,
     roles: __sdk::TableUpdate<Roles>,
+    stdb_position: __sdk::TableUpdate<StdbPosition>,
+    stdb_rotation: __sdk::TableUpdate<StdbRotation>,
+    stdb_transform: __sdk::TableUpdate<StdbTransform>,
+    update_config: __sdk::TableUpdate<UpdateConfig>,
+    update_position_timer: __sdk::TableUpdate<UpdatePositionTimer>,
     user: __sdk::TableUpdate<User>,
 }
 
@@ -107,10 +178,41 @@ impl TryFrom<__ws::DatabaseUpdate<__ws::BsatnFormat>> for DbUpdate {
         let mut db_update = DbUpdate::default();
         for table_update in raw.tables {
             match &table_update.table_name[..] {
+                "chunk" => db_update.chunk = chunk_table::parse_table_update(table_update)?,
+                "entity" => db_update.entity = entity_table::parse_table_update(table_update)?,
+                "entity_position_hr" => {
+                    db_update.entity_position_hr =
+                        entity_position_hr_table::parse_table_update(table_update)?
+                }
+                "entity_position_lr" => {
+                    db_update.entity_position_lr =
+                        entity_position_lr_table::parse_table_update(table_update)?
+                }
+                "internal_entity_position" => {
+                    db_update.internal_entity_position =
+                        internal_entity_position_table::parse_table_update(table_update)?
+                }
                 "position" => {
                     db_update.position = position_table::parse_table_update(table_update)?
                 }
                 "roles" => db_update.roles = roles_table::parse_table_update(table_update)?,
+                "stdb_position" => {
+                    db_update.stdb_position = stdb_position_table::parse_table_update(table_update)?
+                }
+                "stdb_rotation" => {
+                    db_update.stdb_rotation = stdb_rotation_table::parse_table_update(table_update)?
+                }
+                "stdb_transform" => {
+                    db_update.stdb_transform =
+                        stdb_transform_table::parse_table_update(table_update)?
+                }
+                "update_config" => {
+                    db_update.update_config = update_config_table::parse_table_update(table_update)?
+                }
+                "update_position_timer" => {
+                    db_update.update_position_timer =
+                        update_position_timer_table::parse_table_update(table_update)?
+                }
                 "user" => db_update.user = user_table::parse_table_update(table_update)?,
 
                 unknown => {
@@ -138,12 +240,42 @@ impl __sdk::DbUpdate for DbUpdate {
     ) -> AppliedDiff<'_> {
         let mut diff = AppliedDiff::default();
 
+        diff.chunk = cache
+            .apply_diff_to_table::<Chunk>("chunk", &self.chunk)
+            .with_updates_by_pk(|row| &row.identity);
+        diff.entity = cache.apply_diff_to_table::<Entity>("entity", &self.entity);
+        diff.entity_position_hr = cache.apply_diff_to_table::<EntityPositionHr>(
+            "entity_position_hr",
+            &self.entity_position_hr,
+        );
+        diff.entity_position_lr = cache.apply_diff_to_table::<EntityPositionLr>(
+            "entity_position_lr",
+            &self.entity_position_lr,
+        );
+        diff.internal_entity_position = cache.apply_diff_to_table::<InternalEntityPosition>(
+            "internal_entity_position",
+            &self.internal_entity_position,
+        );
         diff.position = cache
             .apply_diff_to_table::<Position>("position", &self.position)
             .with_updates_by_pk(|row| &row.identity);
         diff.roles = cache
             .apply_diff_to_table::<Roles>("roles", &self.roles)
             .with_updates_by_pk(|row| &row.identity);
+        diff.stdb_position =
+            cache.apply_diff_to_table::<StdbPosition>("stdb_position", &self.stdb_position);
+        diff.stdb_rotation =
+            cache.apply_diff_to_table::<StdbRotation>("stdb_rotation", &self.stdb_rotation);
+        diff.stdb_transform =
+            cache.apply_diff_to_table::<StdbTransform>("stdb_transform", &self.stdb_transform);
+        diff.update_config =
+            cache.apply_diff_to_table::<UpdateConfig>("update_config", &self.update_config);
+        diff.update_position_timer = cache
+            .apply_diff_to_table::<UpdatePositionTimer>(
+                "update_position_timer",
+                &self.update_position_timer,
+            )
+            .with_updates_by_pk(|row| &row.scheduled_id);
         diff.user = cache
             .apply_diff_to_table::<User>("user", &self.user)
             .with_updates_by_pk(|row| &row.identity);
@@ -156,8 +288,18 @@ impl __sdk::DbUpdate for DbUpdate {
 #[allow(non_snake_case)]
 #[doc(hidden)]
 pub struct AppliedDiff<'r> {
+    chunk: __sdk::TableAppliedDiff<'r, Chunk>,
+    entity: __sdk::TableAppliedDiff<'r, Entity>,
+    entity_position_hr: __sdk::TableAppliedDiff<'r, EntityPositionHr>,
+    entity_position_lr: __sdk::TableAppliedDiff<'r, EntityPositionLr>,
+    internal_entity_position: __sdk::TableAppliedDiff<'r, InternalEntityPosition>,
     position: __sdk::TableAppliedDiff<'r, Position>,
     roles: __sdk::TableAppliedDiff<'r, Roles>,
+    stdb_position: __sdk::TableAppliedDiff<'r, StdbPosition>,
+    stdb_rotation: __sdk::TableAppliedDiff<'r, StdbRotation>,
+    stdb_transform: __sdk::TableAppliedDiff<'r, StdbTransform>,
+    update_config: __sdk::TableAppliedDiff<'r, UpdateConfig>,
+    update_position_timer: __sdk::TableAppliedDiff<'r, UpdatePositionTimer>,
     user: __sdk::TableAppliedDiff<'r, User>,
 }
 
@@ -171,8 +313,50 @@ impl<'r> __sdk::AppliedDiff<'r> for AppliedDiff<'r> {
         event: &EventContext,
         callbacks: &mut __sdk::DbCallbacks<RemoteModule>,
     ) {
+        callbacks.invoke_table_row_callbacks::<Chunk>("chunk", &self.chunk, event);
+        callbacks.invoke_table_row_callbacks::<Entity>("entity", &self.entity, event);
+        callbacks.invoke_table_row_callbacks::<EntityPositionHr>(
+            "entity_position_hr",
+            &self.entity_position_hr,
+            event,
+        );
+        callbacks.invoke_table_row_callbacks::<EntityPositionLr>(
+            "entity_position_lr",
+            &self.entity_position_lr,
+            event,
+        );
+        callbacks.invoke_table_row_callbacks::<InternalEntityPosition>(
+            "internal_entity_position",
+            &self.internal_entity_position,
+            event,
+        );
         callbacks.invoke_table_row_callbacks::<Position>("position", &self.position, event);
         callbacks.invoke_table_row_callbacks::<Roles>("roles", &self.roles, event);
+        callbacks.invoke_table_row_callbacks::<StdbPosition>(
+            "stdb_position",
+            &self.stdb_position,
+            event,
+        );
+        callbacks.invoke_table_row_callbacks::<StdbRotation>(
+            "stdb_rotation",
+            &self.stdb_rotation,
+            event,
+        );
+        callbacks.invoke_table_row_callbacks::<StdbTransform>(
+            "stdb_transform",
+            &self.stdb_transform,
+            event,
+        );
+        callbacks.invoke_table_row_callbacks::<UpdateConfig>(
+            "update_config",
+            &self.update_config,
+            event,
+        );
+        callbacks.invoke_table_row_callbacks::<UpdatePositionTimer>(
+            "update_position_timer",
+            &self.update_position_timer,
+            event,
+        );
         callbacks.invoke_table_row_callbacks::<User>("user", &self.user, event);
     }
 }
@@ -749,8 +933,18 @@ impl __sdk::SpacetimeModule for RemoteModule {
     type SubscriptionHandle = SubscriptionHandle;
 
     fn register_tables(client_cache: &mut __sdk::ClientCache<Self>) {
+        chunk_table::register_table(client_cache);
+        entity_table::register_table(client_cache);
+        entity_position_hr_table::register_table(client_cache);
+        entity_position_lr_table::register_table(client_cache);
+        internal_entity_position_table::register_table(client_cache);
         position_table::register_table(client_cache);
         roles_table::register_table(client_cache);
+        stdb_position_table::register_table(client_cache);
+        stdb_rotation_table::register_table(client_cache);
+        stdb_transform_table::register_table(client_cache);
+        update_config_table::register_table(client_cache);
+        update_position_timer_table::register_table(client_cache);
         user_table::register_table(client_cache);
     }
 }

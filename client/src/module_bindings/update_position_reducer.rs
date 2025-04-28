@@ -4,20 +4,18 @@
 #![allow(unused, clippy::all)]
 use spacetimedb_sdk::__codegen::{self as __sdk, __lib, __sats, __ws};
 
+use super::stdb_transform_type::StdbTransform;
+
 #[derive(__lib::ser::Serialize, __lib::de::Deserialize, Clone, PartialEq, Debug)]
 #[sats(crate = __lib)]
 pub(super) struct UpdatePositionArgs {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub transform: StdbTransform,
 }
 
 impl From<UpdatePositionArgs> for super::Reducer {
     fn from(args: UpdatePositionArgs) -> Self {
         Self::UpdatePosition {
-            x: args.x,
-            y: args.y,
-            z: args.z,
+            transform: args.transform,
         }
     }
 }
@@ -38,7 +36,7 @@ pub trait update_position {
     /// This method returns immediately, and errors only if we are unable to send the request.
     /// The reducer will run asynchronously in the future,
     ///  and its status can be observed by listening for [`Self::on_update_position`] callbacks.
-    fn update_position(&self, x: f64, y: f64, z: f64) -> __sdk::Result<()>;
+    fn update_position(&self, transform: StdbTransform) -> __sdk::Result<()>;
     /// Register a callback to run whenever we are notified of an invocation of the reducer `update_position`.
     ///
     /// Callbacks should inspect the [`__sdk::ReducerEvent`] contained in the [`super::ReducerEventContext`]
@@ -48,7 +46,7 @@ pub trait update_position {
     /// to cancel the callback.
     fn on_update_position(
         &self,
-        callback: impl FnMut(&super::ReducerEventContext, &f64, &f64, &f64) + Send + 'static,
+        callback: impl FnMut(&super::ReducerEventContext, &StdbTransform) + Send + 'static,
     ) -> UpdatePositionCallbackId;
     /// Cancel a callback previously registered by [`Self::on_update_position`],
     /// causing it not to run in the future.
@@ -56,13 +54,13 @@ pub trait update_position {
 }
 
 impl update_position for super::RemoteReducers {
-    fn update_position(&self, x: f64, y: f64, z: f64) -> __sdk::Result<()> {
+    fn update_position(&self, transform: StdbTransform) -> __sdk::Result<()> {
         self.imp
-            .call_reducer("update_position", UpdatePositionArgs { x, y, z })
+            .call_reducer("update_position", UpdatePositionArgs { transform })
     }
     fn on_update_position(
         &self,
-        mut callback: impl FnMut(&super::ReducerEventContext, &f64, &f64, &f64) + Send + 'static,
+        mut callback: impl FnMut(&super::ReducerEventContext, &StdbTransform) + Send + 'static,
     ) -> UpdatePositionCallbackId {
         UpdatePositionCallbackId(self.imp.on_reducer(
             "update_position",
@@ -70,7 +68,7 @@ impl update_position for super::RemoteReducers {
                 let super::ReducerEventContext {
                     event:
                         __sdk::ReducerEvent {
-                            reducer: super::Reducer::UpdatePosition { x, y, z },
+                            reducer: super::Reducer::UpdatePosition { transform },
                             ..
                         },
                     ..
@@ -78,7 +76,7 @@ impl update_position for super::RemoteReducers {
                 else {
                     unreachable!()
                 };
-                callback(ctx, x, y, z)
+                callback(ctx, transform)
             }),
         ))
     }
