@@ -88,6 +88,7 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
 use stdb_position_type::StdbPosition; // Import the correct type
 use std::sync::Mutex;
 use lazy_static::lazy_static;
+use std::f32::consts::PI;
 
 lazy_static! {
     static ref CURRENT_TRANSFORM: Mutex<StdbTransform> = Mutex::new(StdbTransform {
@@ -96,7 +97,7 @@ lazy_static! {
     });
 }
 
-fn send_my_position(ctx: &DbConnection) {
+fn send_random_position(ctx: &DbConnection) {
     // Generate random deltas for position and rotation
     let delta_position = generate_random_position();
     let delta_rotation = generate_random_rotation();
@@ -128,6 +129,64 @@ fn generate_random_position() -> StdbPosition {
 }
 
 fn generate_random_rotation() -> StdbRotation {
+    let mut rng = rand::rng();
+    StdbRotation {
+        x:0.0,
+        y:0.0,
+        z:0.0,
+        //x: rng.random_range(-1.0..10.0),
+        //y: rng.random_range(-1.0..10.0),
+        //z: rng.random_range(-1.0..10.0),
+    }
+}
+
+
+
+fn send_my_position(ctx: &DbConnection) {
+    // Generate new absolute position and rotation
+    let new_position = generate_new_position();
+    let new_rotation = generate_new_rotation();
+
+    // Update the current transform stored in the static
+    let mut current_transform = CURRENT_TRANSFORM.lock().unwrap();
+    current_transform.position = new_position;
+    current_transform.rotation = new_rotation;
+
+    // Send the updated position and rotation to the database
+    let _ = ctx.reducers.update_my_position(current_transform.clone());
+}
+
+
+fn generate_new_position() -> StdbPosition {
+
+    // Define the circle's radius and the number of points
+    const RADIUS: f32 = 5.0;
+    const POINTS: usize = 360;
+
+    // Static variable to keep track of the current angle
+    lazy_static! {
+        static ref CURRENT_ANGLE: Mutex<f32> = Mutex::new(0.0);
+    }
+
+    // Calculate the next position on the circle
+    let mut angle = CURRENT_ANGLE.lock().unwrap();
+    let x = RADIUS * angle.to_radians().cos();
+    let z = RADIUS * angle.to_radians().sin();
+
+    // Increment the angle for the next position
+    *angle += 360.0 / POINTS as f32;
+    if *angle >= 360.0 {
+        *angle -= 360.0;
+    }
+
+    StdbPosition {
+        x,
+        y: 0.0, // Fixed y value for simplicity
+        z,
+    }
+}
+
+fn generate_new_rotation() -> StdbRotation {
     let mut rng = rand::rng();
     StdbRotation {
         x:0.0,
@@ -198,14 +257,11 @@ fn user_input_loop(ctx: &DbConnection) {
             }
         }
         if let Some(_username) = line.strip_prefix("/random" ) {
-            let end_time = std::time::Instant::now() + std::time::Duration::from_secs(20);
-            let mut operation_count = 0;
-            while std::time::Instant::now() < end_time {
-                operation_count += 1;
+            loop {
                 send_my_position(ctx);
-                std::thread::sleep(std::time::Duration::from_millis(1000/120)); // 60 TPS
+                std::thread::sleep(std::time::Duration::from_millis(1000/15));
             }
-            println!("Number of operations performed: {}", operation_count);
+
         }
     }
 }
