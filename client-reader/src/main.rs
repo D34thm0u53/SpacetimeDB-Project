@@ -12,7 +12,7 @@ fn main() {
     register_callbacks(&ctx);
 
      // Subscribe to SQL queries in order to construct a local partial replica of the database.
-     subscribe_to_tables(&ctx);
+    subscribe_to_tables(&ctx);
 
     // Spawn a thread, where the connection will process messages and invoke callbacks.
     ctx.run_threaded();
@@ -85,80 +85,62 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
-use stdb_position_type::StdbPosition; // Import the correct type
-use std::sync::Mutex;
-use lazy_static::lazy_static;
-
-lazy_static! {
-    static ref CURRENT_TRANSFORM: Mutex<StdbTransform> = Mutex::new(StdbTransform {
-        position: StdbPosition { x: 0.0, y: 0.0, z: 0.0 },
-        rotation: StdbRotation { x: 0.0, y: 0.0, z: 0.0 },
-    });
-}
-
-fn send_my_position(ctx: &DbConnection) {
-    // Generate random deltas for position and rotation
-    let delta_position = generate_random_position();
-    let delta_rotation = generate_random_rotation();
-
-    // Update the current transform stored in the static
-    let mut current_transform = CURRENT_TRANSFORM.lock().unwrap();
-    current_transform.position.x += delta_position.x;
-    current_transform.position.y += delta_position.y;
-    current_transform.position.z += delta_position.z;
-
-    current_transform.rotation.x += delta_rotation.x;
-    current_transform.rotation.y += delta_rotation.y;
-    current_transform.rotation.z += delta_rotation.z;
-
-    // Send the updated position and rotation to the database
-    let _ = ctx.reducers.update_my_position(current_transform.clone());
-}
-
-
-fn generate_random_position() -> StdbPosition {
-    let mut rng = rand::rng();
-    StdbPosition {
-        x: rng.random_range(-0.5..0.5),
-        y: 0.0, // Fixed y value for simplicity
-        //y: rng.random_range(-1.0..1.0),
-        z: rng.random_range(-0.5..0.5),
-        
-    }
-}
-
-fn generate_random_rotation() -> StdbRotation {
-    let mut rng = rand::rng();
-    StdbRotation {
-        x:0.0,
-        y:0.0,
-        z:0.0,
-        //x: rng.random_range(-1.0..10.0),
-        //y: rng.random_range(-1.0..10.0),
-        //z: rng.random_range(-1.0..10.0),
-    }
-}
-
-
-
-
 /// Register all the callbacks our app will use to respond to database events.
 fn register_callbacks(ctx: &DbConnection) {
     // Register a callback on the positiontable to be used on position updates
-    ctx.db.position().on_update(on_user_position_updated);
+
+    ctx.db.player_entity().on_update(player_entity_updated);
 
 }
 
-fn on_user_position_updated(_ctx: &EventContext, old: &Position, new: &Position) {
-    let dx = new.x - old.x;
-    let dy = new.y - old.y;
-    let dz = new.z - old.z;
-    if false {
-        println!(
-            "User {} moved: Δx = {}, Δy = {}, Δz = {}",
-            new.identity, dx, dy, dz
-        );
+fn player_entity_updated(_ctx: &EventContext, old: &PlayerEntity, new: &PlayerEntity) {
+
+    // Check if the position or rotation has changed
+    // If so, print the new position and rotation
+
+    let mut deltas = Vec::new();
+
+    if new.transform.position.x != old.transform.position.x {
+        deltas.push(format!(
+            "Position X changed from {} to {}",
+            old.transform.position.x, new.transform.position.x
+        ));
     }
+    if new.transform.position.y != old.transform.position.y {
+        deltas.push(format!(
+            "Position Y changed from {} to {}",
+            old.transform.position.y, new.transform.position.y
+        ));
+    }
+    if new.transform.position.z != old.transform.position.z {
+        deltas.push(format!(
+            "Position Z changed from {} to {}",
+            old.transform.position.z, new.transform.position.z
+        ));
+    }
+    if new.transform.rotation.x != old.transform.rotation.x {
+        deltas.push(format!(
+            "Rotation X changed from {} to {}",
+            old.transform.rotation.x, new.transform.rotation.x
+        ));
+    }
+    if new.transform.rotation.y != old.transform.rotation.y {
+        deltas.push(format!(
+            "Rotation Y changed from {} to {}",
+            old.transform.rotation.y, new.transform.rotation.y
+        ));
+    }
+    if new.transform.rotation.z != old.transform.rotation.z {
+        deltas.push(format!(
+            "Rotation Z changed from {} to {}",
+            old.transform.rotation.z, new.transform.rotation.z
+        ));
+    }
+
+    if !deltas.is_empty() {
+        println!("Player entity deltas: {:?}", deltas);
+    }
+
 }
     
 
@@ -168,7 +150,7 @@ fn subscribe_to_tables(ctx: &DbConnection) {
     ctx.subscription_builder()
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
-        .subscribe(["SELECT * FROM position"]);
+        .subscribe(["SELECT * FROM player_entity"]);
 }
 
 fn on_sub_applied(ctx: &SubscriptionEventContext) {
@@ -196,16 +178,6 @@ fn user_input_loop(ctx: &DbConnection) {
             if let Err(e) = ctx.reducers.set_user_name(username.to_string()) {
                 eprintln!("Error setting user name: {:?}", e);
             }
-        }
-        if let Some(_username) = line.strip_prefix("/random" ) {
-            let end_time = std::time::Instant::now() + std::time::Duration::from_secs(20);
-            let mut operation_count = 0;
-            while std::time::Instant::now() < end_time {
-                operation_count += 1;
-                send_my_position(ctx);
-                std::thread::sleep(std::time::Duration::from_millis(1000/120)); // 60 TPS
-            }
-            println!("Number of operations performed: {}", operation_count);
         }
     }
 }

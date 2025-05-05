@@ -236,7 +236,6 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "hex",
- "lazy_static",
  "rand",
  "spacetimedb-sdk",
 ]

@@ -6,12 +6,13 @@ use spacetimedb_sdk::__codegen::{self as __sdk, __lib, __sats, __ws};
 
 #[derive(__lib::ser::Serialize, __lib::de::Deserialize, Clone, PartialEq, Debug)]
 #[sats(crate = __lib)]
-pub struct StdbRotation {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+pub struct Position {
+    pub identity: __sdk::Identity,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
-impl __sdk::InModule for StdbRotation {
+impl __sdk::InModule for Position {
     type Module = super::RemoteModule;
 }

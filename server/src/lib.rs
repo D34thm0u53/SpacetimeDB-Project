@@ -65,7 +65,9 @@ pub struct InternalEntityPosition {
     pub transform: StdbTransform,
 }
 
-// Structure for the internal entity Transform table
+
+
+// Structure for the entity Transform table
 #[spacetimedb::table(name = stdb_transform, private)]
 #[derive(Clone)]
 pub struct StdbTransform {
@@ -73,7 +75,7 @@ pub struct StdbTransform {
     rotation: StdbRotation,
 }
 
-// Structure for the internal entity position table
+// Structure for the entity position table
 #[spacetimedb::table(name = stdb_position, private)]
 #[derive(Clone)]
 pub struct StdbPosition {
@@ -81,16 +83,18 @@ pub struct StdbPosition {
     pub y: f32,
     pub z: f32,
 }
-// Structure for the internal entity rotation table
+// Structure for the entity rotation table
 #[spacetimedb::table(name = stdb_rotation, private)]
 #[derive(Clone)]
 pub struct StdbRotation {
     pub x: f32,
     pub y: f32,
     pub z: f32,
-    pub w: f32,
 }
 
+
+
+// Structure for the non-player entity table
 #[spacetimedb::table(name = entity, public)]
 pub struct Entity {
     #[unique]
@@ -100,6 +104,16 @@ pub struct Entity {
     #[unique]
     username: String,
 }
+
+// Structure for the player entity table
+#[table(name = player_entity, public)]
+pub struct PlayerEntity {
+    #[primary_key]
+    identity: Identity,
+    #[unique]
+    transform: StdbTransform,
+}
+
 
 // Structure for the table containing the scheduled update position timer
 #[spacetimedb::table(name = update_position_timer, scheduled(update_all_positions))]
@@ -127,6 +141,30 @@ pub struct EntityPositionLR {
     // representation to save even more space
     pub transform: StdbTransform,
 }
+
+
+#[spacetimedb::reducer]
+pub fn update_my_position(ctx: &ReducerContext, transform: StdbTransform) {
+    // The user has provided us with an update of their current position
+    
+    if let Some(player_entity) = ctx.db.player_entity().identity().find(ctx.sender) {
+        // Update the user's internal position
+        ctx.db.player_entity().identity().update(PlayerEntity { 
+            transform,
+            ..player_entity
+        });
+
+    } else {
+        // This is a new player, so we need to create one.
+        log::trace!("New Player created, set initial username to {}", ctx.sender);
+        ctx.db.player_entity().insert(PlayerEntity {
+            identity: ctx.sender,
+            transform,
+        });
+    }
+}
+
+
 
 #[spacetimedb::reducer]
 pub fn update_position(ctx: &ReducerContext, transform: StdbTransform) {
