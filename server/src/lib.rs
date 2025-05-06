@@ -110,7 +110,6 @@ pub struct Entity {
 pub struct PlayerEntity {
     #[primary_key]
     identity: Identity,
-    #[unique]
     transform: StdbTransform,
 }
 
@@ -157,6 +156,7 @@ pub fn update_my_position(ctx: &ReducerContext, transform: StdbTransform) {
     } else {
         // This is a new player, so we need to create one.
         log::trace!("New Player created, set initial username to {}", ctx.sender);
+
         ctx.db.player_entity().insert(PlayerEntity {
             identity: ctx.sender,
             transform,
@@ -183,6 +183,7 @@ pub fn update_position(ctx: &ReducerContext, transform: StdbTransform) {
             .update(InternalEntityPosition {
                 id: entity.id,
                 transform,
+                
             });
     } else {
         ctx.db

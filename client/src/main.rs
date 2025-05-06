@@ -259,7 +259,8 @@ fn user_input_loop(ctx: &DbConnection) {
         if let Some(_username) = line.strip_prefix("/random" ) {
             loop {
                 send_my_position(ctx);
-                std::thread::sleep(std::time::Duration::from_millis(1000/15));
+                std::thread::sleep(std::time::Duration::from_millis(1000/24));
+                println!("Looping...");
             }
 
         }

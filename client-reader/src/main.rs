@@ -100,12 +100,6 @@ fn player_entity_updated(_ctx: &EventContext, old: &PlayerEntity, new: &PlayerEn
 
     let mut deltas = Vec::new();
 
-    if new.transform.position.x != old.transform.position.x {
-        deltas.push(format!(
-            "Position X changed from {} to {}",
-            old.transform.position.x, new.transform.position.x
-        ));
-    }
     if new.transform.position.y != old.transform.position.y {
         deltas.push(format!(
             "Position Y changed from {} to {}",
@@ -174,10 +168,6 @@ fn user_input_loop(ctx: &DbConnection) {
         let Ok(line) = line else {
             panic!("Failed to read from stdin.");
         };
-        if let Some(username) = line.strip_prefix("/setname " ) {
-            if let Err(e) = ctx.reducers.set_user_name(username.to_string()) {
-                eprintln!("Error setting user name: {:?}", e);
-            }
+
         }
     }
-}

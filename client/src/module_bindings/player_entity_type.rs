@@ -10,6 +10,7 @@ use super::stdb_transform_type::StdbTransform;
 #[sats(crate = __lib)]
 pub struct PlayerEntity {
     pub identity: __sdk::Identity,
+    pub move_count: u32,
     pub transform: StdbTransform,
 }
 
