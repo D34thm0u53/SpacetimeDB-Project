@@ -4,7 +4,9 @@
 /server/debug/
 /client/target/
 /client/debug/
-/UnityProject/*
+/client-reader/target/
+/client-reader/debug/
+/UnityProject/
 
 
 
