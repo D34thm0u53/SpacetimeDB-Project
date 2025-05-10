@@ -19,7 +19,7 @@ jobs:
     - name: Build Server
       working-directory: server/
       run: | 
-        spacetime publish --server local multiuserpositions
+        spacetime publish --server local multiuserpositions --delete-data -y
       shell: bash
       
       
