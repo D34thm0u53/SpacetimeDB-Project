@@ -1,0 +1,26 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    types: [ "opened", "synchronize", "reopened" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build Server
+      working-directory: server/
+      run: | 
+        spacetime publish --server local multiuserpositions --delete-data -y
+      shell: bash
+      
+      
