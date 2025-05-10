@@ -3,6 +3,7 @@
 
 #![allow(unused, clippy::all)]
 use super::entity_type::Entity;
+use super::stdb_transform_type::StdbTransform;
 use spacetimedb_sdk::__codegen::{self as __sdk, __lib, __sats, __ws};
 
 /// Table handle for the table `entity`.
@@ -81,9 +82,23 @@ impl<'ctx> __sdk::Table for EntityTableHandle<'ctx> {
 #[doc(hidden)]
 pub(super) fn register_table(client_cache: &mut __sdk::ClientCache<super::RemoteModule>) {
     let _table = client_cache.get_or_make_table::<Entity>("entity");
-    _table.add_unique_constraint::<u32>("id", |row| &row.id);
     _table.add_unique_constraint::<__sdk::Identity>("identity", |row| &row.identity);
-    _table.add_unique_constraint::<String>("username", |row| &row.username);
+}
+pub struct EntityUpdateCallbackId(__sdk::CallbackId);
+
+impl<'ctx> __sdk::TableWithPrimaryKey for EntityTableHandle<'ctx> {
+    type UpdateCallbackId = EntityUpdateCallbackId;
+
+    fn on_update(
+        &self,
+        callback: impl FnMut(&Self::EventContext, &Self::Row, &Self::Row) + Send + 'static,
+    ) -> EntityUpdateCallbackId {
+        EntityUpdateCallbackId(self.imp.on_update(Box::new(callback)))
+    }
+
+    fn remove_on_update(&self, callback: EntityUpdateCallbackId) {
+        self.imp.remove_on_update(callback.0)
+    }
 }
 
 #[doc(hidden)]
@@ -95,36 +110,6 @@ pub(super) fn parse_table_update(
             .with_cause(e)
             .into()
     })
-}
-
-/// Access to the `id` unique index on the table `entity`,
-/// which allows point queries on the field of the same name
-/// via the [`EntityIdUnique::find`] method.
-///
-/// Users are encouraged not to explicitly reference this type,
-/// but to directly chain method calls,
-/// like `ctx.db.entity().id().find(...)`.
-pub struct EntityIdUnique<'ctx> {
-    imp: __sdk::UniqueConstraintHandle<Entity, u32>,
-    phantom: std::marker::PhantomData<&'ctx super::RemoteTables>,
-}
-
-impl<'ctx> EntityTableHandle<'ctx> {
-    /// Get a handle on the `id` unique index on the table `entity`.
-    pub fn id(&self) -> EntityIdUnique<'ctx> {
-        EntityIdUnique {
-            imp: self.imp.get_unique_constraint::<u32>("id"),
-            phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'ctx> EntityIdUnique<'ctx> {
-    /// Find the subscribed row whose `id` column value is equal to `col_val`,
-    /// if such a row is present in the client cache.
-    pub fn find(&self, col_val: &u32) -> Option<Entity> {
-        self.imp.find(col_val)
-    }
 }
 
 /// Access to the `identity` unique index on the table `entity`,
@@ -155,36 +140,6 @@ impl<'ctx> EntityIdentityUnique<'ctx> {
     /// Find the subscribed row whose `identity` column value is equal to `col_val`,
     /// if such a row is present in the client cache.
     pub fn find(&self, col_val: &__sdk::Identity) -> Option<Entity> {
-        self.imp.find(col_val)
-    }
-}
-
-/// Access to the `username` unique index on the table `entity`,
-/// which allows point queries on the field of the same name
-/// via the [`EntityUsernameUnique::find`] method.
-///
-/// Users are encouraged not to explicitly reference this type,
-/// but to directly chain method calls,
-/// like `ctx.db.entity().username().find(...)`.
-pub struct EntityUsernameUnique<'ctx> {
-    imp: __sdk::UniqueConstraintHandle<Entity, String>,
-    phantom: std::marker::PhantomData<&'ctx super::RemoteTables>,
-}
-
-impl<'ctx> EntityTableHandle<'ctx> {
-    /// Get a handle on the `username` unique index on the table `entity`.
-    pub fn username(&self) -> EntityUsernameUnique<'ctx> {
-        EntityUsernameUnique {
-            imp: self.imp.get_unique_constraint::<String>("username"),
-            phantom: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<'ctx> EntityUsernameUnique<'ctx> {
-    /// Find the subscribed row whose `username` column value is equal to `col_val`,
-    /// if such a row is present in the client cache.
-    pub fn find(&self, col_val: &String) -> Option<Entity> {
         self.imp.find(col_val)
     }
 }

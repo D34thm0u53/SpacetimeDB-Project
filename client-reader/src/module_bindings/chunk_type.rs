@@ -10,6 +10,7 @@ pub struct Chunk {
     pub identity: __sdk::Identity,
     pub x: u32,
     pub y: u32,
+    pub z: u32,
 }
 
 impl __sdk::InModule for Chunk {
