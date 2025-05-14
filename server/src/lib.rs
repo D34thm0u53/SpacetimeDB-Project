@@ -2,66 +2,21 @@ use spacetimedb::{table, reducer, Table, ReducerContext, Identity, Timestamp};
 
 pub mod modules;
 
-
-/*
-Define our Tables
-
-*/
-
-// Store User Profiles
-#[table(name = user, public)]
-pub struct User {
-    #[primary_key]
-    identity: Identity,
-    username: String,
-    online: bool,
-    last_seen: Timestamp,
-}
-
-// Store User Roles
-#[table(name = roles, private)]
-pub struct Roles {
-    #[primary_key]
-    identity: Identity,
-    is_administrator: bool, 
-    is_moderator: bool,
-}
+use modules::player::player_login;
+use modules::player::player_logout;
 
 
 #[reducer(client_connected)]
 // Called when a client connects to a SpacetimeDB database server
 pub fn client_connected(ctx: &ReducerContext) {
-    if let Some(user) = ctx.db.user().identity().find(ctx.sender) {
-        // Update the user's online status to true
-        ctx.db.user().identity().update(User { online: true, ..user });
-    } 
-    else {
-        //this is a new user, so we need to create one.
-        log::trace!("New User created, set initial username to {}", ctx.sender);
-        ctx.db.user().insert(User {
-            username: ctx.sender.to_string(),
-            identity: ctx.sender,
-            online: true,
-            last_seen: ctx.timestamp,
-        });
-        //for all new users, also create a row in the position table
-    }
+    player_login(ctx);
 }
-
 
 #[reducer(client_disconnected)]
 // Called when a client disconnects from SpacetimeDB database server
 pub fn client_disconnected(ctx: &ReducerContext) {
-    if let Some(user) = ctx.db.user().identity().find(ctx.sender) {
-        ctx.db.user().identity().update(User { online: false, last_seen: ctx.timestamp, ..user });
-    }
-    else {
-        // This branch should be unreachable,
-        // as it doesn't make sense for a client to disconnect without connecting first.
-        log::warn!("Disconnect event for unknown user with identity {:?}", ctx.sender);
-    }
+    player_logout(ctx);
 }
-
 
 // Name Management
 #[reducer]

@@ -28,7 +28,6 @@ const HOST: &str = "http://10.1.1.236:3000";
 const DB_NAME: &str = "multiuserpositions";
 
 
-
 /// Load credentials from a file and connect to the database.
 fn connect_to_db() -> DbConnection {
     DbConnection::builder()
@@ -85,41 +84,30 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
-use stdb_position_type::StdbPosition; // Import the correct type
+
 use std::sync::Mutex;
 use lazy_static::lazy_static;
-use std::f32::consts::PI;
 
-lazy_static! {
-    static ref CURRENT_TRANSFORM: Mutex<StdbTransform> = Mutex::new(StdbTransform {
-        position: StdbPosition { x: 0.0, y: 0.0, z: 0.0 },
-        rotation: StdbRotation { x: 0.0, y: 0.0, z: 0.0 },
-    });
+
+struct PlayerEntityPosition {
+    x: f32,
+    y: f32,
+    z: f32,
+}
+struct PlayerEntityRotation {
+    x: f32,
+    y: f32,
+    z: f32,
 }
 
-fn send_random_position(ctx: &DbConnection) {
-    // Generate random deltas for position and rotation
-    let delta_position = generate_random_position();
-    let delta_rotation = generate_random_rotation();
-
-    // Update the current transform stored in the static
-    let mut current_transform = CURRENT_TRANSFORM.lock().unwrap();
-    current_transform.position.x += delta_position.x;
-    current_transform.position.y += delta_position.y;
-    current_transform.position.z += delta_position.z;
-
-    current_transform.rotation.x += delta_rotation.x;
-    current_transform.rotation.y += delta_rotation.y;
-    current_transform.rotation.z += delta_rotation.z;
-
-    // Send the updated position and rotation to the database
-    let _ = ctx.reducers.update_my_position(current_transform.clone());
+struct PlayerEntityTransform {
+    position: PlayerEntityPosition,
+    rotation: PlayerEntityRotation,
 }
 
-
-fn generate_random_position() -> StdbPosition {
+fn generate_random_position() -> PlayerEntityPosition {
     let mut rng = rand::rng();
-    StdbPosition {
+    PlayerEntityPosition {
         x: rng.random_range(-0.5..0.5),
         y: 0.0, // Fixed y value for simplicity
         //y: rng.random_range(-1.0..1.0),
@@ -128,9 +116,9 @@ fn generate_random_position() -> StdbPosition {
     }
 }
 
-fn generate_random_rotation() -> StdbRotation {
+fn generate_random_rotation() -> PlayerEntityRotation {
     let _rng = rand::rng();
-    StdbRotation {
+    PlayerEntityRotation {
         x:0.0,
         y:0.0,
         z:0.0,
@@ -139,25 +127,33 @@ fn generate_random_rotation() -> StdbRotation {
         //z: rng.random_range(-1.0..10.0),
     }
 }
-
-
-
 fn send_my_position(ctx: &DbConnection) {
-    // Generate new absolute position and rotation
-    let new_position = generate_new_position();
-    let new_rotation = generate_new_rotation();
+    // Generate a random position and rotation
+    let position = generate_new_position();
+    let rotation = generate_new_rotation();
 
-    // Update the current transform stored in the static
-    let mut current_transform = CURRENT_TRANSFORM.lock().unwrap();
-    current_transform.position = new_position;
-    current_transform.rotation = new_rotation;
+    // Create a new PlayerEntity with the generated position and rotation
+    let player_entity = PlayerEntity {
+        identity: ctx.identity()
+    };
+    let transform = PlayerEntityTransform {
+            position: PlayerEntityPosition {
+                x: position.x,
+                y: position.y,
+                z: position.z,
+            },
+            rotation: PlayerEntityRotation {
+                x: rotation.x,
+                y: rotation.y,
+                z: rotation.z,
+            },
+        };
 
-    // Send the updated position and rotation to the database
-    let _ = ctx.reducers.update_my_position(current_transform.clone());
+    // Send the PlayerEntity to the database
+    ctx.reducers.update_my_position(player_entity, transform);
 }
 
-
-fn generate_new_position() -> StdbPosition {
+fn generate_new_position() -> PlayerEntityPosition {
 
     // Define the circle's radius and the number of points
     const RADIUS: f32 = 12.0;
@@ -179,16 +175,16 @@ fn generate_new_position() -> StdbPosition {
         *angle -= 360.0;
     }
 
-    StdbPosition {
+    PlayerEntityPosition {
         x,
         y: 0.0, // Fixed y value for simplicity
         z,
     }
 }
 
-fn generate_new_rotation() -> StdbRotation {
+fn generate_new_rotation() -> PlayerEntityRotation {
     let mut _rng = rand::rng();
-    StdbRotation {
+    PlayerEntityRotation {
         x:0.0,
         y:0.0,
         z:0.0,
