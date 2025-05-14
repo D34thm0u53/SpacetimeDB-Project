@@ -4,6 +4,8 @@ use spacetimedb::{reducer, spacetimedb_lib::identity, table, Identity, ReducerCo
 #[table(name = player, public)]
 pub struct Player {
     #[primary_key]
+    #[auto_inc]
+    id: u64,
     identity: Identity,
     online: bool,
     last_seen: Timestamp,
@@ -20,6 +22,7 @@ pub fn player_login(ctx: &ReducerContext ) {
     } else {
         // This is a new player, create a new entry in the database
         ctx.db.player().insert(Player {
+            id: 0,
             identity: ctx.sender,
             online: true,
             last_seen: ctx.timestamp,
