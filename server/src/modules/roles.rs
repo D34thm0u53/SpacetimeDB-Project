@@ -15,7 +15,6 @@ pub struct Roles {
 
 #[table(name = roles_audit, private)]
 pub struct RolesAudit {
-    #[primary_key]
     identity: Identity,
     previous_role: RoleType,
     new_role: RoleType,

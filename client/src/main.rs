@@ -26,7 +26,7 @@ const HOST: &str = "http://10.1.1.236:3000";
 
 /// The database name we chose when we published our module.
 const DB_NAME: &str = "multiuserpositions";
-
+const MY_ID: u64 = 1;
 
 /// Load credentials from a file and connect to the database.
 fn connect_to_db() -> DbConnection {
@@ -49,7 +49,6 @@ fn connect_to_db() -> DbConnection {
         .build()
         .expect("Failed to connect")
 }
-
 
 fn creds_store() -> credentials::File {
     credentials::File::new("multiuserpositions")
@@ -84,76 +83,22 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
-
 use std::sync::Mutex;
 use lazy_static::lazy_static;
 
 
-struct PlayerEntityPosition {
-    x: f32,
-    y: f32,
-    z: f32,
-}
-struct PlayerEntityRotation {
-    x: f32,
-    y: f32,
-    z: f32,
-}
 
-struct PlayerEntityTransform {
-    position: PlayerEntityPosition,
-    rotation: PlayerEntityRotation,
-}
-
-fn generate_random_position() -> PlayerEntityPosition {
-    let mut rng = rand::rng();
-    PlayerEntityPosition {
-        x: rng.random_range(-0.5..0.5),
-        y: 0.0, // Fixed y value for simplicity
-        //y: rng.random_range(-1.0..1.0),
-        z: rng.random_range(-0.5..0.5),
-        
-    }
-}
-
-fn generate_random_rotation() -> PlayerEntityRotation {
-    let _rng = rand::rng();
-    PlayerEntityRotation {
-        x:0.0,
-        y:0.0,
-        z:0.0,
-        //x: rng.random_range(-1.0..10.0),
-        //y: rng.random_range(-1.0..10.0),
-        //z: rng.random_range(-1.0..10.0),
-    }
-}
 fn send_my_position(ctx: &DbConnection) {
     // Generate a random position and rotation
     let position = generate_new_position();
-    let rotation = generate_new_rotation();
-
-    // Create a new PlayerEntity with the generated position and rotation
-    let player_entity = PlayerEntity {
-        identity: ctx.identity()
-    };
-    let transform = PlayerEntityTransform {
-            position: PlayerEntityPosition {
-                x: position.x,
-                y: position.y,
-                z: position.z,
-            },
-            rotation: PlayerEntityRotation {
-                x: rotation.x,
-                y: rotation.y,
-                z: rotation.z,
-            },
-        };
 
     // Send the PlayerEntity to the database
-    ctx.reducers.update_my_position(player_entity, transform);
+    if let Err(e) = ctx.reducers.update_my_position(position) {
+        eprintln!("Error updating position: {:?}", e);
+    }
 }
 
-fn generate_new_position() -> PlayerEntityPosition {
+fn generate_new_position() -> StdbPosition {
 
     // Define the circle's radius and the number of points
     const RADIUS: f32 = 12.0;
@@ -175,24 +120,14 @@ fn generate_new_position() -> PlayerEntityPosition {
         *angle -= 360.0;
     }
 
-    PlayerEntityPosition {
+    StdbPosition {
+        player_id_fk: MY_ID,
         x,
         y: 0.0, // Fixed y value for simplicity
         z,
     }
 }
 
-fn generate_new_rotation() -> PlayerEntityRotation {
-    let mut _rng = rand::rng();
-    PlayerEntityRotation {
-        x:0.0,
-        y:0.0,
-        z:0.0,
-        //x: rng.random_range(-1.0..10.0),
-        //y: rng.random_range(-1.0..10.0),
-        //z: rng.random_range(-1.0..10.0),
-    }
-}
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
 fn user_input_loop(ctx: &DbConnection) {
@@ -207,12 +142,21 @@ fn user_input_loop(ctx: &DbConnection) {
             }
         }
         if let Some(_username) = line.strip_prefix("/random" ) {
-            loop {
-                send_my_position(ctx);
-                std::thread::sleep(std::time::Duration::from_millis(1000/500));
-                println!("Looping...");
+            send_my_position(ctx)
+        }
+        if let Some(user_role) = line.strip_prefix("/setrole ") {
+            let role = match user_role {
+                "user" => RoleType::User,
+                "admin" => RoleType::GameAdmin,
+                "trusted" => RoleType::TrustedUser,
+                _ => {
+                    eprintln!("Invalid role: {}", user_role);
+                    continue;
+                }
+            };
+            if let Err(e) = ctx.reducers.set_user_role(role ) {
+                eprintln!("Error setting user role: {:?}", e);
             }
-
         }
     }
 }
