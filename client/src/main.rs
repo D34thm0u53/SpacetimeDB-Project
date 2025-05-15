@@ -158,5 +158,17 @@ fn user_input_loop(ctx: &DbConnection) {
                 eprintln!("Error setting user role: {:?}", e);
             }
         }
+        if let Some(_username) = line.strip_prefix("/exit" ) {
+            if let Err(e) = ctx.disconnect() {
+                eprintln!("Error disconnecting: {:?}", e);
+            }
+            break;
+        }
+        if let Some(_username) = line.strip_prefix("/validate" ) {
+            if let Err(e) = ctx.reducers.validate_users() {
+                eprintln!("Error validating users: {:?}", e);
+            }
+
+        }
     }
 }

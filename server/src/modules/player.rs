@@ -1,5 +1,7 @@
 use spacetimedb::{reducer, spacetimedb_lib::identity, table, Identity, ReducerContext, Table, Timestamp};
 
+use crate::modules::admin_tools::validate_users;
+
 // Store current location of users
 #[table(name = player, public)]
 pub struct Player {
@@ -7,7 +9,7 @@ pub struct Player {
     #[auto_inc]
     pub id: u64,
     #[unique]
-    identity: Identity,
+    pub identity: Identity,
     pub online: bool,
     pub last_seen: Timestamp,
     #[unique]
@@ -21,15 +23,21 @@ pub fn player_login(ctx: &ReducerContext ) {
         // Player already exists, update their online status
         ctx.db.player().id().update(Player { online: true, last_seen: ctx.timestamp, ..player });
     } else {
+        // Prepare our needed data
+        let identity_str = ctx.sender.to_string();
+        let truncated_identity = identity_str.chars().take(64).collect::<String>();
+
+
         // This is a new player, create a new entry in the database
         ctx.db.player().insert(Player {
             id: 0,
             identity: ctx.sender,
             online: true,
             last_seen: ctx.timestamp,
-            username: "".to_string(), // Default username
+            username: truncated_identity, // Default username
         });
     }
+
 }
 
 #[reducer]
@@ -76,8 +84,8 @@ fn set_user_name(ctx: &ReducerContext, username: String) -> Result<(), String> {
 
 /// Takes a name and checks if it's acceptable as a user's name.
 fn validate_name(username: String) -> Result<String, String> {
-    if username.len() > 32 {
-        Err("Names must be less than 32 characters".to_string())
+    if username.len() > 64 {
+        Err("Names must be less than 64 characters".to_string())
     }
     else if username.contains(' ') {
         Err("Names must not contain spaces".to_string())
@@ -118,9 +126,7 @@ fn validate_name(username: String) -> Result<String, String> {
     else if username.contains('*') {
         Err("Names must not contain asterisks".to_string())
     }
-    else if username.is_empty() {
-        Err("Names must not be empty".to_string())
-    }
+    
     else {
         Ok(username)
     }

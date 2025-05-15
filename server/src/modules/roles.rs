@@ -7,10 +7,12 @@ use spacetimedb::SpacetimeType;
 #[spacetimedb::table(name = roles, public)]
 pub struct Roles {
     #[primary_key]
-    identity: Identity,
-    is_trusted_user: bool,
-    is_game_admin: bool,
-    is_server_administrator: bool, 
+    pub id: u64,
+    #[unique]
+    pub identity: Identity,
+    pub is_trusted_user: bool,
+    pub is_game_admin: bool,
+    pub is_server_administrator: bool, 
 }
 
 #[table(name = roles_audit, private)]
@@ -80,6 +82,7 @@ pub fn set_user_role(ctx: &ReducerContext, role: RoleType) {
     } else {
         // This is a new user, create a new entry in the database. New users are always a base User
         ctx.db.roles().insert(Roles {
+            id: 0,
             identity: ctx.sender,
             is_trusted_user: false,
             is_game_admin: false,
