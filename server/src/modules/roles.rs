@@ -22,8 +22,6 @@ pub struct RolesAudit {
     timestamp: Timestamp,
 }
 
-
-
 #[derive(SpacetimeType, Debug, Clone, PartialEq, Eq,)]
 pub enum RoleType {
     User,

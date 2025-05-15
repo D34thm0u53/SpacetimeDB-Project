@@ -57,16 +57,21 @@ pub fn update_my_position(ctx: &ReducerContext, position: Position) {
     // The user has provided us with an update of their current position
     if let Some(player_entity) = ctx.db.player_entity().player_id().find(ctx.sender) {
         // Update the user's internal position
-        let player_entity_position = ctx.db.stdb_position().identity().find(player_entity.player_id);
+        if let Some(player_entity_position) = ctx.db.stdb_position().identity().find(player_entity.player_id) {
+            ctx.db.stdb_position().identity().update(
+                StdbPosition {
+                    x: position.x,
+                    y: position.y,
+                    z: position.z,
+                    ..player_entity_position });
 
-        ctx.db.stdb_position().identity().update( 
-            StdbPosition {
-                x: position.x,
-                y: position.y,
-                z: position.z,
-                ..stdb_position
-            }
-        );
+        }
+        else {
+
+
+        }
+
+        
     }
     else {
         // This is a new player, so we need to create one.
@@ -75,11 +80,11 @@ pub fn update_my_position(ctx: &ReducerContext, position: Position) {
             player_id: ctx.sender,
         });
         // Create a new position and rotation for the player
-        let position = ctx.db.stdb_position().insert(StdbPosition {
+        let player_entity_position = ctx.db.stdb_position().insert(StdbPosition {
             x: position.x,
             y: position.y,
             z: position.z,
-            ..stdb_position
+            identity: ctx.sender,
         });
     }
 }
