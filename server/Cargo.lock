@@ -9,7 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
- "getrandom",
  "once_cell",
  "version_check",
  "zerocopy 0.7.35",
@@ -264,10 +263,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b112acc8b3adf4b107a8ec20977da0273a8c386765a3ec0229bd500a1443f9f"
 
 [[package]]
+name = "ident_case"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
 name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -321,6 +335,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy 0.8.24",
+]
+
+[[package]]
+name = "prettyplease"
+version = "0.2.32"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "664ec5419c51e34154eec046ebcba56312d5a2fc3b09a06da188e1ad21afadf6"
+dependencies = [
+ "proc-macro2",
+ "syn",
 ]
 
 [[package]]
@@ -441,18 +465,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
 
 [[package]]
+name = "spacetime-bindings-macro-input"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac8908eb4c3329581641e61efa141201bde1c840a8a0fdc936a5721d3d9737b3"
+dependencies = [
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "spacetime-module"
 version = "0.1.0"
 dependencies = [
+ "itertools 0.14.0",
  "log",
  "spacetimedb",
+ "spacetimedsl",
 ]
 
 [[package]]
 name = "spacetimedb"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d595c729163810394910fea961d52754fab1d098e803458b849a6e5df4605b34"
+checksum = "41cfbca6e4796309179af17942f37f5e1a7297e7a91fa33d2a20ccad48f50e35"
 dependencies = [
  "bytemuck",
  "derive_more",
@@ -468,9 +506,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-bindings-macro"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d03a1fd20efaef18e120c2f58e3627792ac940cf4ba2c7ab257c14f93af4630"
+checksum = "1c60767c5e80fb1d0753834b894c9c3f9eb0ddba351ef4681fe714ff1024e727"
 dependencies = [
  "heck 0.4.1",
  "humantime",
@@ -482,18 +520,18 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-bindings-sys"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc7635d6cee5b6d9023d77892233d15039010202b0717fb8aef99bda10a6f4b"
+checksum = "4b5f6d06e1df203c97ecb7cd404e6a9a1920bfc3b7e16b40d650be6bfabe3292"
 dependencies = [
  "spacetimedb-primitives",
 ]
 
 [[package]]
 name = "spacetimedb-data-structures"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6dfabc712bba5caed8e9c640aef5b15593632803a184a4f4c189e29203606051"
+checksum = "f857c5f4ea6c3d13f9d78d3aaa36fd31d1879331fdd15d3f1de0ecbc4e6e1968"
 dependencies = [
  "ahash",
  "hashbrown",
@@ -504,9 +542,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-lib"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8512ccf4e88eb5e7a3e372698b1906f8c0b00048a42f65d08f3835f5d905b50"
+checksum = "69e1c1bac730f946c8ac07d9e71aee934eb1a82c02dcb6757a3763cdab808d1f"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -515,7 +553,7 @@ dependencies = [
  "derive_more",
  "enum-as-inner",
  "hex",
- "itertools",
+ "itertools 0.12.1",
  "spacetimedb-bindings-macro",
  "spacetimedb-data-structures",
  "spacetimedb-primitives",
@@ -525,21 +563,21 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-primitives"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "618e216164cc4d31ae097404bcd941ccd18f0e6032770b8eb7fd3ba062129513"
+checksum = "f149b0933112064b4d3424bfae9b6dc694d4bc2e3ca80b6974a0628e81b61c70"
 dependencies = [
  "bitflags",
  "either",
- "itertools",
+ "itertools 0.12.1",
  "nohash-hasher",
 ]
 
 [[package]]
 name = "spacetimedb-sats"
-version = "1.1.0"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "097b2267e8efe5a0bda872468e81e726d28d8e1595b48708da0d64966c7972de"
+checksum = "e0e4739251061b529df194318f78c85482dff282d41175eeefe1a1f9c5ce556f"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -552,13 +590,52 @@ dependencies = [
  "enum-as-inner",
  "ethnum",
  "hex",
- "itertools",
+ "itertools 0.12.1",
  "second-stack",
  "sha3",
  "smallvec",
  "spacetimedb-bindings-macro",
  "spacetimedb-primitives",
  "thiserror",
+]
+
+[[package]]
+name = "spacetimedsl"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b0f9efba6a65ef945deab7d78fd6670c6dc50f074533b9132b4ca4e10bec149"
+dependencies = [
+ "itertools 0.14.0",
+ "spacetimedb",
+ "spacetimedsl_derive",
+]
+
+[[package]]
+name = "spacetimedsl_derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3fe57a8d33dfc0068e3143868284e92f91363ab44da744846b8f04699fec45"
+dependencies = [
+ "ident_case",
+ "prettyplease",
+ "proc-macro2",
+ "quote",
+ "spacetimedsl_derive-input",
+ "syn",
+]
+
+[[package]]
+name = "spacetimedsl_derive-input"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5f4f03245125f1ea432766a3a8d4dfa07bb4cb2e7ff1f0d7c7d87feb6eaf0ab"
+dependencies = [
+ "ident_case",
+ "proc-macro2",
+ "quote",
+ "spacetime-bindings-macro-input",
+ "spacetimedb",
+ "syn",
 ]
 
 [[package]]
