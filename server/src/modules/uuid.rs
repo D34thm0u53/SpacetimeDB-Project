@@ -1,3 +1,6 @@
+// STDB Discord: https://discord.gg/7k3v8a4
+// https://discord.com/channels/1037340874172014652/1361787955076665607
+//
 // === SpacetimeDB UUID implementation ===
 use std::{fmt::Display, ops::Deref};
 

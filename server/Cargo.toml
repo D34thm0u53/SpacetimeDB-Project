@@ -12,6 +12,9 @@ crate-type = ["cdylib"]
 spacetimedb = "1.1.2"
 log = "0.4"
 serde = { version = "1.0.219", features = ["serde_derive"] }
+itertools = "=0.14.0"
+spacetimedsl_derive = "=0.5.1"
+spacetimedsl = "0.5.1"
 
 [dependencies.uuid] 
 version = "1.16.0"
