@@ -8,6 +8,9 @@
 /client-reader/src/module_bindings/
 /client-reader/target/
 /client-reader/debug/
+/admin_client/src/module_bindings/
+/admin_client/target/
+/admin_client/debug/
 /UnityProject/
 
 

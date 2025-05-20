@@ -210,14 +210,14 @@ Getting started with SpacetimeDB involves a few key steps:
 
 When a reducer function executes, it is provided with a **Reducer Context**. This context contains vital information about the call's origin and environment, crucial for logic, especially security checks. Key pieces of information typically available within the context include:
 
-*   **Sender Identity**: The authenticated [`Identity`](#identity) of the entity that invoked the reducer. This could be:
+*   **Sender Identity**: The authenticated [`Identity`] #identity of the entity that invoked the reducer. This could be:
     *   A client application connected to the database.
     *   The module itself, if the reducer was triggered by the internal scheduler (for scheduled reducers).
     *   The module itself, if the reducer was called internally by another reducer function within the same module.
-*   **Module Identity**: The authenticated [`Identity`](#identity) representing the database (module) itself. This is useful for checks where an action should only be performed by the module (e.g., in scheduled reducers).
+*   **Module Identity**: The authenticated [`Identity`] #identity representing the database (module) itself. This is useful for checks where an action should only be performed by the module (e.g., in scheduled reducers).
 *   **Database Access**: Handles or interfaces for interacting with the database tables defined in the module. This allows the reducer to perform operations like inserting, updating, deleting, and querying rows based on primary keys or indexes.
-*   **Timestamp**: A [`Timestamp`](#timestamp) indicating precisely when the current reducer execution began.
-*   **Connection ID**: A [`ConnectionId`](#connectionid) representing the specific network connection instance (like a WebSocket session or a stateless HTTP request) that invoked the reducer. This is a unique, server-assigned identifier that persists only for the duration of that connection (from connection start to disconnect). 
+*   **Timestamp**: A [`Timestamp`] #timestamp indicating precisely when the current reducer execution began.
+*   **Connection ID**: A [`ConnectionId`] #connectionid representing the specific network connection instance (like a WebSocket session or a stateless HTTP request) that invoked the reducer. This is a unique, server-assigned identifier that persists only for the duration of that connection (from connection start to disconnect). 
     *   **Important Distinction**: Unlike the **Sender Identity** (which represents the *authenticated user or module*), the **Connection ID** solely identifies the *transient network session*. It is assigned by the server and is not based on client-provided authentication credentials. Use the Connection ID for logic tied to a specific connection instance (e.g., tracking session state, rate limiting per connection), and use the Sender Identity for logic related to the persistent, authenticated user or the module itself.
 
 Understanding the difference between the **Sender Identity** and the **Module Identity** is particularly important for security. For example, when writing scheduled reducers, you often need to verify that the **Sender Identity** matches the **Module Identity** to ensure the action wasn't improperly triggered by an external client.
