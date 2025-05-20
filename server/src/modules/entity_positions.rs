@@ -1,4 +1,4 @@
-use spacetimedb::{table, reducer, Table, ReducerContext, Identity, Timestamp};
+use spacetimedb::{Table, ReducerContext};
 use spacetimedb::SpacetimeType;
 
 // Structure for the non-player entity table

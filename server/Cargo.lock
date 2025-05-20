@@ -263,25 +263,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b112acc8b3adf4b107a8ec20977da0273a8c386765a3ec0229bd500a1443f9f"
 
 [[package]]
-name = "ident_case"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
-
-[[package]]
 name = "itertools"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
-dependencies = [
- "either",
-]
-
-[[package]]
-name = "itertools"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
 dependencies = [
  "either",
 ]
@@ -335,16 +320,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
 dependencies = [
  "zerocopy 0.8.24",
-]
-
-[[package]]
-name = "prettyplease"
-version = "0.2.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "664ec5419c51e34154eec046ebcba56312d5a2fc3b09a06da188e1ad21afadf6"
-dependencies = [
- "proc-macro2",
- "syn",
 ]
 
 [[package]]
@@ -465,25 +440,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
 
 [[package]]
-name = "spacetime-bindings-macro-input"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac8908eb4c3329581641e61efa141201bde1c840a8a0fdc936a5721d3d9737b3"
-dependencies = [
- "ident_case",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "spacetime-module"
 version = "0.1.0"
 dependencies = [
- "itertools 0.14.0",
  "log",
+ "serde",
  "spacetimedb",
- "spacetimedsl",
+ "uuid",
 ]
 
 [[package]]
@@ -553,7 +516,7 @@ dependencies = [
  "derive_more",
  "enum-as-inner",
  "hex",
- "itertools 0.12.1",
+ "itertools",
  "spacetimedb-bindings-macro",
  "spacetimedb-data-structures",
  "spacetimedb-primitives",
@@ -569,7 +532,7 @@ checksum = "f149b0933112064b4d3424bfae9b6dc694d4bc2e3ca80b6974a0628e81b61c70"
 dependencies = [
  "bitflags",
  "either",
- "itertools 0.12.1",
+ "itertools",
  "nohash-hasher",
 ]
 
@@ -590,52 +553,13 @@ dependencies = [
  "enum-as-inner",
  "ethnum",
  "hex",
- "itertools 0.12.1",
+ "itertools",
  "second-stack",
  "sha3",
  "smallvec",
  "spacetimedb-bindings-macro",
  "spacetimedb-primitives",
  "thiserror",
-]
-
-[[package]]
-name = "spacetimedsl"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b0f9efba6a65ef945deab7d78fd6670c6dc50f074533b9132b4ca4e10bec149"
-dependencies = [
- "itertools 0.14.0",
- "spacetimedb",
- "spacetimedsl_derive",
-]
-
-[[package]]
-name = "spacetimedsl_derive"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c3fe57a8d33dfc0068e3143868284e92f91363ab44da744846b8f04699fec45"
-dependencies = [
- "ident_case",
- "prettyplease",
- "proc-macro2",
- "quote",
- "spacetimedsl_derive-input",
- "syn",
-]
-
-[[package]]
-name = "spacetimedsl_derive-input"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f4f03245125f1ea432766a3a8d4dfa07bb4cb2e7ff1f0d7c7d87feb6eaf0ab"
-dependencies = [
- "ident_case",
- "proc-macro2",
- "quote",
- "spacetime-bindings-macro-input",
- "spacetimedb",
- "syn",
 ]
 
 [[package]]
@@ -680,6 +604,15 @@ name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
+
+[[package]]
+name = "uuid"
+version = "1.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "458f7a779bf54acc9f347480ac654f68407d3aab21269a6e3c9f922acd9e2da9"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "version_check"
