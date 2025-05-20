@@ -1,8 +1,10 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table, TableWithPrimaryKey};
-use rand::Rng;
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity};
+// Add these dependencies to your Cargo.toml:
+// ureq = "2"
+// serde_json = "1"
 
 fn main() {
     // Connect to the database
@@ -11,7 +13,7 @@ fn main() {
     // Register callbacks to run in response to database events.
     register_callbacks(&ctx);
 
-     // Subscribe to SQL queries in order to construct a local partial replica of the database.
+    // Subscribe to SQL queries in order to construct a local partial replica of the database.
     subscribe_to_tables(&ctx);
 
     // Spawn a thread, where the connection will process messages and invoke callbacks.
@@ -27,8 +29,6 @@ const HOST: &str = "http://10.1.1.236:3000";
 /// The database name we chose when we published our module.
 const DB_NAME: &str = "multiuserpositions";
 
-
-
 /// Load credentials from a file and connect to the database.
 fn connect_to_db() -> DbConnection {
     DbConnection::builder()
@@ -41,7 +41,7 @@ fn connect_to_db() -> DbConnection {
         // If the user has previously connected, we'll have saved a token in the `on_connect` callback.
         // In that case, we'll load it and pass it to `with_token`,
         // so we can re-authenticate as the same `Identity`.
-        .with_token(creds_store().load().expect("Error loading credentials"))
+        //.with_token(creds_store().load().expect("Error loading credentials"))
         // Set the database name we chose when we called `spacetime publish`.
         .with_module_name(DB_NAME)
         // Set the URI of the SpacetimeDB host that's running our database.
@@ -50,7 +50,6 @@ fn connect_to_db() -> DbConnection {
         .build()
         .expect("Failed to connect")
 }
-
 
 fn creds_store() -> credentials::File {
     credentials::File::new("multiuserpositions")
@@ -73,7 +72,7 @@ fn on_connect_error(_ctx: &ErrorContext, err: Error) {
 fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     match err {
         Some(err) => {
-            eprintln!("Disconnected: {}", err);
+            eprintln!("Disconnected: [{}]", err);
             std::process::exit(1);
         }
         None => {
@@ -86,68 +85,23 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
 }
 
 /// Register all the callbacks our app will use to respond to database events.
-fn register_callbacks(ctx: &DbConnection) {
+fn register_callbacks(_ctx: &DbConnection) {
     // Register a callback on the positiontable to be used on position updates
 
-    ctx.db.player_entity().on_update(player_entity_updated);
+    // ctx.db.player().on_update(player_updated);
+    // ctx.db.player().on_insert(player_inserted);
 
 }
 
-fn player_entity_updated(_ctx: &EventContext, old: &PlayerEntity, new: &PlayerEntity) {
-
-    // Check if the position or rotation has changed
-    // If so, print the new position and rotation
-
-    let mut deltas = Vec::new();
-
-    if new.transform.position.y != old.transform.position.y {
-        deltas.push(format!(
-            "Position Y changed from {} to {}",
-            old.transform.position.y, new.transform.position.y
-        ));
-    }
-    if new.transform.position.z != old.transform.position.z {
-        deltas.push(format!(
-            "Position Z changed from {} to {}",
-            old.transform.position.z, new.transform.position.z
-        ));
-    }
-    if new.transform.rotation.x != old.transform.rotation.x {
-        deltas.push(format!(
-            "Rotation X changed from {} to {}",
-            old.transform.rotation.x, new.transform.rotation.x
-        ));
-    }
-    if new.transform.rotation.y != old.transform.rotation.y {
-        deltas.push(format!(
-            "Rotation Y changed from {} to {}",
-            old.transform.rotation.y, new.transform.rotation.y
-        ));
-    }
-    if new.transform.rotation.z != old.transform.rotation.z {
-        deltas.push(format!(
-            "Rotation Z changed from {} to {}",
-            old.transform.rotation.z, new.transform.rotation.z
-        ));
-    }
-
-    if !deltas.is_empty() {
-        println!("Player entity deltas: {:?}", deltas);
-    }
-
-}
-    
-
-
-
+ 
 fn subscribe_to_tables(ctx: &DbConnection) {
     ctx.subscription_builder()
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
-        .subscribe(["SELECT * FROM player_entity"]);
+        .subscribe(["SELECT * FROM player"]);
 }
 
-fn on_sub_applied(ctx: &SubscriptionEventContext) {
+fn on_sub_applied(_ctx: &SubscriptionEventContext) {
     println!("Fully connected and all subscriptions applied.");
     println!("Use /name to set your name, or type a message!");
 }
@@ -155,17 +109,17 @@ fn on_sub_applied(ctx: &SubscriptionEventContext) {
 /// Or `on_error` callback:
 /// print the error, then exit the process.
 fn on_sub_error(_ctx: &ErrorContext, err: Error) {
-    eprintln!("Subscription failed: {}", err);
+    eprintln!("Subscription failed: [{}]", err);
     std::process::exit(1);
 }
 
 
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
-fn user_input_loop(ctx: &DbConnection) {
+fn user_input_loop(_ctx: &DbConnection) {
     for line in std::io::stdin().lines() {
         println!("Line input:{:?}", line);
-        let Ok(line) = line else {
+        let Ok(_line) = line else {
             panic!("Failed to read from stdin.");
         };
 

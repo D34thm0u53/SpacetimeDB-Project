@@ -1,78 +1,58 @@
-use spacetimedb::{table, reducer, Table, ReducerContext, Identity, Timestamp};
+use spacetimedb::{Table, ReducerContext};
+use spacetimedb::SpacetimeType;
 
-// Store current location of users
-#[table(name = chunk, public)]
-pub struct Chunk {
+// Structure for the non-player entity table
+#[spacetimedb::table(name = entity, public)]
+pub struct Entity {
     #[primary_key]
-    identity: Identity,
-    x: u32,
-    y: u32,
-    z: u32,
-}
-
-// Structure for the entity Transform table
-#[spacetimedb::table(name = stdb_transform, public)]
-#[derive(Clone)]
-pub struct StdbTransform {
-    position: StdbPosition,
-    rotation: StdbRotation,
+    #[auto_inc]
+    id: u64, // The rotation of the player.
 }
 
 // Structure for the entity position table
 #[spacetimedb::table(name = stdb_position, public)]
 #[derive(Clone)]
 pub struct StdbPosition {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-// Structure for the entity rotation table
-#[spacetimedb::table(name = stdb_rotation, public)]
-#[derive(Clone)]
-pub struct StdbRotation {
+    #[primary_key]
+    player_id_fk: u64, // Fk to the player table
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-// Structure for the player entity table
-#[table(name = player_entity, public)]
-pub struct PlayerEntity {
-    #[primary_key]
-    identity: Identity,
-    transform: StdbTransform,
+#[derive(SpacetimeType, Debug, Clone, )]
+pub struct Position {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
-
-// Structure for the non-player entity table
-#[spacetimedb::table(name = entity, public)]
-pub struct Entity {
-    #[primary_key]
-    identity: Identity,
-    transform: StdbTransform,
-}
-
 
 #[spacetimedb::reducer]
-pub fn update_my_position(ctx: &ReducerContext, transform: StdbTransform) {
+pub fn update_my_position(ctx: &ReducerContext, new_position: StdbPosition) {
     // The user has provided us with an update of their current position
-    
-    if let Some(player_entity) = ctx.db.player_entity().identity().find(ctx.sender) {
-        // Update the user's internal position
-        ctx.db.player_entity().identity().update(PlayerEntity { 
-            transform,
-            ..player_entity
-        });
+    if let Some(player_entity_position) = ctx.db.stdb_position().player_id_fk().find(new_position.player_id_fk) {
+        ctx.db.stdb_position().player_id_fk().update(
+            StdbPosition {
+                x: new_position.x,
+                y: new_position.y,
+                z: new_position.z,
+                ..player_entity_position
+            }
+        );
+    }
+    else {
+        ctx.db.stdb_position().insert( 
+            StdbPosition {
+                x: new_position.x,
+                y: new_position.y,
+                z: new_position.z,
+                player_id_fk: new_position.player_id_fk,
 
-    } else {
-        // This is a new player, so we need to create one.
-        log::debug!("New Player created, set initial username to {}", ctx.sender);
-
-        ctx.db.player_entity().insert(PlayerEntity {
-            identity: ctx.sender,
-            transform,
-        });
+            }
+        );
     }
 }
+
 
 
 /*

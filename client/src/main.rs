@@ -1,8 +1,8 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table, TableWithPrimaryKey};
-use rand::Rng;
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity};
+
 
 fn main() {
     // Connect to the database
@@ -26,8 +26,7 @@ const HOST: &str = "http://10.1.1.236:3000";
 
 /// The database name we chose when we published our module.
 const DB_NAME: &str = "multiuserpositions";
-
-
+const MY_ID: u64 = 1;
 
 /// Load credentials from a file and connect to the database.
 fn connect_to_db() -> DbConnection {
@@ -41,7 +40,7 @@ fn connect_to_db() -> DbConnection {
         // If the user has previously connected, we'll have saved a token in the `on_connect` callback.
         // In that case, we'll load it and pass it to `with_token`,
         // so we can re-authenticate as the same `Identity`.
-        .with_token(creds_store().load().expect("Error loading credentials"))
+        //.with_token(creds_store().load().expect("Error loading credentials"))
         // Set the database name we chose when we called `spacetime publish`.
         .with_module_name(DB_NAME)
         // Set the URI of the SpacetimeDB host that's running our database.
@@ -50,7 +49,6 @@ fn connect_to_db() -> DbConnection {
         .build()
         .expect("Failed to connect")
 }
-
 
 fn creds_store() -> credentials::File {
     credentials::File::new("multiuserpositions")
@@ -85,77 +83,20 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
-use stdb_position_type::StdbPosition; // Import the correct type
 use std::sync::Mutex;
 use lazy_static::lazy_static;
-use std::f32::consts::PI;
-
-lazy_static! {
-    static ref CURRENT_TRANSFORM: Mutex<StdbTransform> = Mutex::new(StdbTransform {
-        position: StdbPosition { x: 0.0, y: 0.0, z: 0.0 },
-        rotation: StdbRotation { x: 0.0, y: 0.0, z: 0.0 },
-    });
-}
-
-fn send_random_position(ctx: &DbConnection) {
-    // Generate random deltas for position and rotation
-    let delta_position = generate_random_position();
-    let delta_rotation = generate_random_rotation();
-
-    // Update the current transform stored in the static
-    let mut current_transform = CURRENT_TRANSFORM.lock().unwrap();
-    current_transform.position.x += delta_position.x;
-    current_transform.position.y += delta_position.y;
-    current_transform.position.z += delta_position.z;
-
-    current_transform.rotation.x += delta_rotation.x;
-    current_transform.rotation.y += delta_rotation.y;
-    current_transform.rotation.z += delta_rotation.z;
-
-    // Send the updated position and rotation to the database
-    let _ = ctx.reducers.update_my_position(current_transform.clone());
-}
-
-
-fn generate_random_position() -> StdbPosition {
-    let mut rng = rand::rng();
-    StdbPosition {
-        x: rng.random_range(-0.5..0.5),
-        y: 0.0, // Fixed y value for simplicity
-        //y: rng.random_range(-1.0..1.0),
-        z: rng.random_range(-0.5..0.5),
-        
-    }
-}
-
-fn generate_random_rotation() -> StdbRotation {
-    let _rng = rand::rng();
-    StdbRotation {
-        x:0.0,
-        y:0.0,
-        z:0.0,
-        //x: rng.random_range(-1.0..10.0),
-        //y: rng.random_range(-1.0..10.0),
-        //z: rng.random_range(-1.0..10.0),
-    }
-}
 
 
 
 fn send_my_position(ctx: &DbConnection) {
-    // Generate new absolute position and rotation
-    let new_position = generate_new_position();
-    let new_rotation = generate_new_rotation();
+    // Generate a random position and rotation
+    let position = generate_new_position();
 
-    // Update the current transform stored in the static
-    let mut current_transform = CURRENT_TRANSFORM.lock().unwrap();
-    current_transform.position = new_position;
-    current_transform.rotation = new_rotation;
-
-    // Send the updated position and rotation to the database
-    let _ = ctx.reducers.update_my_position(current_transform.clone());
+    // Send the PlayerEntity to the database
+    if let Err(e) = ctx.reducers.update_my_position(position) {
+        eprintln!("Error updating position: {:?}", e);
+    }
 }
-
 
 fn generate_new_position() -> StdbPosition {
 
@@ -180,23 +121,13 @@ fn generate_new_position() -> StdbPosition {
     }
 
     StdbPosition {
+        player_id_fk: MY_ID,
         x,
         y: 0.0, // Fixed y value for simplicity
         z,
     }
 }
 
-fn generate_new_rotation() -> StdbRotation {
-    let mut _rng = rand::rng();
-    StdbRotation {
-        x:0.0,
-        y:0.0,
-        z:0.0,
-        //x: rng.random_range(-1.0..10.0),
-        //y: rng.random_range(-1.0..10.0),
-        //z: rng.random_range(-1.0..10.0),
-    }
-}
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
 fn user_input_loop(ctx: &DbConnection) {
@@ -211,10 +142,31 @@ fn user_input_loop(ctx: &DbConnection) {
             }
         }
         if let Some(_username) = line.strip_prefix("/random" ) {
-            loop {
-                send_my_position(ctx);
-                std::thread::sleep(std::time::Duration::from_millis(1000/500));
-                println!("Looping...");
+            send_my_position(ctx)
+        }
+        if let Some(user_role) = line.strip_prefix("/setrole ") {
+            let role = match user_role {
+                "user" => RoleType::User,
+                "admin" => RoleType::GameAdmin,
+                "trusted" => RoleType::TrustedUser,
+                _ => {
+                    eprintln!("Invalid role: {}", user_role);
+                    continue;
+                }
+            };
+            if let Err(e) = ctx.reducers.set_user_role(role ) {
+                eprintln!("Error setting user role: {:?}", e);
+            }
+        }
+        if let Some(_username) = line.strip_prefix("/exit" ) {
+            if let Err(e) = ctx.disconnect() {
+                eprintln!("Error disconnecting: {:?}", e);
+            }
+            break;
+        }
+        if let Some(_username) = line.strip_prefix("/validate" ) {
+            if let Err(e) = ctx.reducers.validate_users() {
+                eprintln!("Error validating users: {:?}", e);
             }
 
         }
