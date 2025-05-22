@@ -16,6 +16,8 @@ pub struct PlayerAudit {
 pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) {
     let dsl = dsl(ctx);
     log::trace!("User {:?} performed action: {}", ctx.sender, action);
-    dsl.create_player_audit(ctx.sender, action);
-
+    dsl
+        .create_player_audit(ctx.sender, action)
+        .expect("Failed to create audit record");
 }
+

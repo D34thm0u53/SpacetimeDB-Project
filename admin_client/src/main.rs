@@ -10,12 +10,6 @@ fn main() {
     // Connect to the database
     let ctx: DbConnection = connect_to_db();
 
-    // Register callbacks to run in response to database events.
-    register_callbacks(&ctx);
-
-    // Subscribe to SQL queries in order to construct a local partial replica of the database.
-    subscribe_to_tables(&ctx);
-
     // Spawn a thread, where the connection will process messages and invoke callbacks.
     ctx.run_threaded();
 
@@ -84,44 +78,19 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
-/// Register all the callbacks our app will use to respond to database events.
-fn register_callbacks(_ctx: &DbConnection) {
-    // Register a callback on the positiontable to be used on position updates
-
-    // ctx.db.player().on_update(player_updated);
-    // ctx.db.player().on_insert(player_inserted);
-
-}
-
- 
-fn subscribe_to_tables(ctx: &DbConnection) {
-    ctx.subscription_builder()
-        .on_applied(on_sub_applied)
-        .on_error(on_sub_error)
-        .subscribe(["SELECT * FROM player"]);
-}
-
-fn on_sub_applied(_ctx: &SubscriptionEventContext) {
-    println!("Fully connected and all subscriptions applied.");
-    println!("Use /name to set your name, or type a message!");
-}
-
-/// Or `on_error` callback:
-/// print the error, then exit the process.
-fn on_sub_error(_ctx: &ErrorContext, err: Error) {
-    eprintln!("Subscription failed: [{}]", err);
-    std::process::exit(1);
-}
-
-
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
-fn user_input_loop(_ctx: &DbConnection) {
+fn user_input_loop(ctx: &DbConnection) {
     for line in std::io::stdin().lines() {
         println!("Line input:{:?}", line);
-        let Ok(_line) = line else {
+        let Ok(line) = line else {
             panic!("Failed to read from stdin.");
         };
-
+        if let Some(username) = line.strip_prefix("/setname " ) {
+            if let Err(e) = ctx.reducers.set_username(username.to_string()) {
+                eprintln!("Error setting user name: {:?}", e);
+            }
         }
+        
     }
+}
