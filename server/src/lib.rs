@@ -1,13 +1,16 @@
 use spacetimedb::{reducer, ReducerContext};
+use spacetimedsl::dsl;
+
+
 
 pub mod modules;
 
 use modules::player::*;
 
-
 #[reducer(client_connected)]
 // Called when a client connects to a SpacetimeDB database server
 fn client_connected(ctx: &ReducerContext) {
+    let dsl = dsl(ctx);
     handle_player_connection_event(ctx, 1);
 }
 

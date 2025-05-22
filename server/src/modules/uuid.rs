@@ -10,7 +10,7 @@ use spacetimedb::{
 };
 use uuid::Uuid;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone,PartialEq)]
 pub struct StUuid(Uuid);
 
 impl_st!([] StUuid, spacetimedb::sats::AlgebraicType::String);
