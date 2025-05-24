@@ -1,5 +1,5 @@
 use spacetimedb::{reducer, ReducerContext};
-use spacetimedsl::dsl;
+
 
 pub mod modules;
 

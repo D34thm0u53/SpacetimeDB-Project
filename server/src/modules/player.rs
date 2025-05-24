@@ -4,8 +4,6 @@ use spacetimedsl::dsl;
 
 use crate::modules::util::*;
 
-
-
 // This module handles player connection events and player name management.
 // It is responsible for creating player records in the database.
 
@@ -60,9 +58,9 @@ let dsl = dsl(ctx);
 
 // Return player username by identity.
 // Username str empty if not found.
-pub fn get_username(ctx: &ReducerContext) -> String {
+pub fn get_username(ctx: &ReducerContext, identity: Identity) -> String {
     let dsl = dsl(ctx);
-    match dsl.get_player_by_identity(&ctx.sender) {
+    match dsl.get_player_by_identity(&identity) {
         Some(player) => player.username,
         None => "".to_string(),
     }
@@ -120,9 +118,6 @@ fn validate_name(username: String) -> Result<String, String> {
     if !trimmed.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
         return Err("Username contains invalid characters (allowed: a-z, A-Z, 0-9, _, -)".to_string());
     }
-    // Uniqueness check: must not already exist in the player table
-    // (Assumes access to ctx is available; if not, pass ctx as an argument)
-    // This function signature does not have ctx, so uniqueness must be checked in the reducer.
     Ok(trimmed.to_string())
 }
 

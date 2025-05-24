@@ -82,15 +82,24 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
 /// Read each line of standard input, and either set our name or send a message as appropriate.
 fn user_input_loop(ctx: &DbConnection) {
     for line in std::io::stdin().lines() {
-        println!("Line input:{:?}", line);
         let Ok(line) = line else {
             panic!("Failed to read from stdin.");
         };
-        if let Some(username) = line.strip_prefix("/setname " ) {
-            if let Err(e) = ctx.reducers.set_username(username.to_string()) {
+        if let Some(_cmd) = line.strip_prefix("/"){
+            if let Some(username) = line.strip_prefix("/setname " ) {
+                if let Err(e) = ctx.reducers.set_username(username.to_string()) {
                 eprintln!("Error setting user name: {:?}", e);
+                }
             }
         }
+        else if let Some(message) = line.strip_prefix("") {
+            if let Err(e) = ctx.reducers.send_global_chat(message.to_string()) {
+                eprintln!("Error sending message: {:?}", e);
+            }
+        } else {
+            println!("Unknown command: {}", line);
+        }
+
         
     }
 }

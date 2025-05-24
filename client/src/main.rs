@@ -1,7 +1,7 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Identity};
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table};
 
 
 fn main() {
@@ -9,10 +9,10 @@ fn main() {
     let ctx: DbConnection = connect_to_db();
 
     // Register callbacks to run in response to database events.
-    //register_callbacks(&ctx);
+    register_callbacks(&ctx);
 
     // Subscribe to SQL queries in order to construct a local partial replica of the database.
-    //subscribe_to_tables(&ctx);
+    subscribe_to_tables(&ctx);
 
     // Spawn a thread, where the connection will process messages and invoke callbacks.
     ctx.run_threaded();
@@ -26,7 +26,6 @@ const HOST: &str = "http://10.1.1.236:3000";
 
 /// The database name we chose when we published our module.
 const DB_NAME: &str = "multiuserpositions";
-const MY_ID: u64 = 1;
 
 /// Load credentials from a file and connect to the database.
 fn connect_to_db() -> DbConnection {
@@ -83,92 +82,76 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
-use std::sync::Mutex;
-use lazy_static::lazy_static;
 
 
 
-fn send_my_position(ctx: &DbConnection) {
-    // Generate a random position and rotation
-    let position = generate_new_position();
+fn subscribe_to_tables(ctx: &DbConnection) {
+    ctx.subscription_builder()
+        .on_applied(on_sub_applied)
+        .on_error(on_sub_error)
+        .subscribe(["SELECT * FROM global_chat_message"]);
+    ctx.subscription_builder()
+        .on_applied(on_sub_applied)
+        .on_error(on_sub_error)
+        .subscribe(["SELECT * FROM player_ignore_pair"]);
+}
 
-    // Send the PlayerEntity to the database
-    if let Err(e) = ctx.reducers.update_my_position(position) {
-        eprintln!("Error updating position: {:?}", e);
+fn on_sub_applied(_ctx: &SubscriptionEventContext) {
+    println!("Fully connected and all subscriptions applied.");
+    println!("Use /name to set your name, or type a message!");
+}
+
+/// Or `on_error` callback:
+/// print the error, then exit the process.
+fn on_sub_error(_ctx: &ErrorContext, err: Error) {
+    eprintln!("Subscription failed: {}", err);
+    std::process::exit(1);
+}
+
+fn register_callbacks(ctx: &DbConnection) {
+    // When a new user joins, print a notification.
+
+    ctx.db.global_chat_message().on_insert(on_msg_inserted);
+
+    // When we fail to set our name, print a warning.
+
+}
+
+fn on_msg_inserted(ctx: &EventContext, msg: &GlobalChatMessage) {
+    // Get the current user's id (assuming it's available via ctx.identity())
+    let my_id = ctx.identity();
+
+    // Check if the message sender is ignored by the current user
+    let is_ignored = ctx
+        .db
+        .player_ignore_pair()
+        .iter()
+        .any(|pair| pair.ignorer_identity == my_id && pair.ignored_identity == msg.identity);
+
+    if !is_ignored {
+        println!("{:?}:{:?}", msg.username, msg.message);
     }
 }
 
-fn generate_new_position() -> StdbPosition {
-
-    // Define the circle's radius and the number of points
-    const RADIUS: f32 = 12.0;
-    const POINTS: usize = 180;
-
-    // Static variable to keep track of the current angle
-    lazy_static! {
-        static ref CURRENT_ANGLE: Mutex<f32> = Mutex::new(0.0);
-    }
-
-    // Calculate the next position on the circle
-    let mut angle = CURRENT_ANGLE.lock().unwrap();
-    let x = RADIUS * angle.to_radians().cos();
-    let z = RADIUS * angle.to_radians().sin();
-
-    // Increment the angle for the next position
-    *angle += 360.0 / POINTS as f32;
-    if *angle >= 360.0 {
-        *angle -= 360.0;
-    }
-
-    StdbPosition {
-        player_id_fk: MY_ID,
-        x,
-        y: 0.0, // Fixed y value for simplicity
-        z,
-    }
-}
 
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
 fn user_input_loop(ctx: &DbConnection) {
     for line in std::io::stdin().lines() {
-        println!("Line input:{:?}", line);
         let Ok(line) = line else {
             panic!("Failed to read from stdin.");
         };
-        if let Some(username) = line.strip_prefix("/setname " ) {
-            if let Err(e) = ctx.reducers.set_user_name(username.to_string()) {
+        if let Some(_cmd) = line.strip_prefix("/"){
+            if let Some(username) = line.strip_prefix("/ignore " ) {
+                if let Err(e) = ctx.reducers.ignore_target_player(username.to_string()) {
                 eprintln!("Error setting user name: {:?}", e);
-            }
-        }
-        if let Some(_username) = line.strip_prefix("/random" ) {
-            send_my_position(ctx)
-        }
-        if let Some(user_role) = line.strip_prefix("/setrole ") {
-            let role = match user_role {
-                "user" => RoleType::User,
-                "admin" => RoleType::GameAdmin,
-                "trusted" => RoleType::TrustedUser,
-                _ => {
-                    eprintln!("Invalid role: {}", user_role);
-                    continue;
                 }
-            };
-            if let Err(e) = ctx.reducers.set_user_role(role ) {
-                eprintln!("Error setting user role: {:?}", e);
             }
-        }
-        if let Some(_username) = line.strip_prefix("/exit" ) {
-            if let Err(e) = ctx.disconnect() {
-                eprintln!("Error disconnecting: {:?}", e);
+            if let Some(username) = line.strip_prefix("/unignore " ) {
+                if let Err(e) = ctx.reducers.unignore_target_player(username.to_string()) {
+                eprintln!("Error setting user name: {:?}", e);
+                }
             }
-            break;
-        }
-        if let Some(_username) = line.strip_prefix("/validate" ) {
-            if let Err(e) = ctx.reducers.validate_users() {
-                eprintln!("Error validating users: {:?}", e);
-            }
-
         }
     }
 }
