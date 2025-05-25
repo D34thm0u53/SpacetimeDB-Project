@@ -6,7 +6,6 @@ use spacetimedsl::{dsl};
 
 use crate::modules::{player::*, entity_positions::*, common::*};
 
-
 #[dsl(plural_name = chunk_check_timers)]
 #[spacetimedb::table(name = chunk_check_timer, scheduled(calculate_current_chunks))]
 pub struct ChunkCheckTimer {
@@ -24,7 +23,6 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
     dsl.create_chunk_check_timer(spacetimedb::ScheduleAt::Interval(Duration::from_millis(5000).into()), 0)?;
     Ok(())
 }
-
 
 #[spacetimedb::reducer]
 pub fn calculate_current_chunks(ctx: &ReducerContext, _timer: ChunkCheckTimer) -> Result<(), String> {

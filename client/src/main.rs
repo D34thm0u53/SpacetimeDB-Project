@@ -1,7 +1,7 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table, TableWithPrimaryKey, Timestamp};
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table, TableWithPrimaryKey};
 
 
 fn main() {
@@ -141,7 +141,7 @@ fn on_msg_inserted(ctx: &EventContext, msg: &GlobalChatMessage) {
 }
 
 
-fn on_entity_position_updated(ctx: &EventContext, old_pos: &EnityPosition, new_pos: &EnityPosition) {
+fn on_entity_position_updated(ctx: &EventContext, _old_pos: &EnityPosition, new_pos: &EnityPosition) {
     // Get the current user's id (assuming it's available via ctx.identity())
     let my_id = ctx.identity();
     if new_pos.player_identity != my_id {

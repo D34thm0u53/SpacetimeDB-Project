@@ -1,7 +1,7 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Timestamp};
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity};
 // Add these dependencies to your Cargo.toml:
 // ureq = "2"
 // serde_json = "1"
@@ -85,7 +85,7 @@ fn user_input_loop(ctx: &DbConnection) {
         let Ok(line) = line else {
             panic!("Failed to read from stdin.");
         };
-        if let Some(cmd) = line.strip_prefix("/") {
+        if let Some(_cmd) = line.strip_prefix("/") {
             if let Some(username) = line.strip_prefix("/setname " ) {
                 if let Err(e) = ctx.reducers.set_username(username.to_string()) {
                     eprintln!("Error setting user name: {:?}", e);
