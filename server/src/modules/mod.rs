@@ -4,3 +4,5 @@ pub mod roles;
 pub mod admin_tools;
 pub mod uuid;
 pub mod util;
+pub mod chats;
+pub mod common;

@@ -9,9 +9,13 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-spacetimedb = "1.1.2"
+spacetimedb = { version = "1.1.2", features = ["unstable"] }
 log = "0.4"
 serde = { version = "1.0.219", features = ["serde_derive"] }
+itertools = "=0.14.0"
+spacetimedsl_derive = "=0.5.1"
+spacetimedsl = "0.5.1"
+serde_json = "1.0.140"
 
 [dependencies.uuid] 
 version = "1.16.0"

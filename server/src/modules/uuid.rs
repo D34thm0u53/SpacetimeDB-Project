@@ -1,3 +1,6 @@
+// STDB Discord: https://discord.gg/7k3v8a4
+// https://discord.com/channels/1037340874172014652/1361787955076665607
+//
 // === SpacetimeDB UUID implementation ===
 use std::{fmt::Display, ops::Deref};
 
@@ -7,7 +10,7 @@ use spacetimedb::{
 };
 use uuid::Uuid;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone,PartialEq)]
 pub struct StUuid(Uuid);
 
 impl_st!([] StUuid, spacetimedb::sats::AlgebraicType::String);
@@ -43,30 +46,3 @@ impl From<Uuid> for StUuid {
     }
 }
 
-// ===/ SpacetimeDB UUID implementation /===
-
-/* 
-#[spacetimedb::table(name = person)]
-pub struct Person {
-    #[primary_key]
-    uuid: StUuid,
-    name: String,
-}
-
-#[spacetimedb::reducer]
-pub fn add(ctx: &ReducerContext, name: String) {
-    ctx.db.person().insert(Person {
-        name,
-        uuid: StUuid::new(ctx),
-    });
-}
-
-#[spacetimedb::reducer]
-pub fn say_hello(ctx: &ReducerContext) {
-    for person in ctx.db.person().iter() {
-        log::info!("Hello, {} - {}!", person.name, person.uuid);
-    }
-    log::info!("Hello, World!");
-}
-
-*/

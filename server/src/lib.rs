@@ -1,9 +1,28 @@
 use spacetimedb::{reducer, ReducerContext};
+use spacetimedsl::dsl;
+
 
 pub mod modules;
-
 use modules::player::*;
+use modules::roles::*;
 
+pub mod schedulers;
+use schedulers::scheduler_chunks::{self};
+
+
+#[reducer(init)]
+// Called when a client connects to a SpacetimeDB database server
+fn database_init(ctx: &ReducerContext) {
+
+    
+    scheduler_chunks::init(ctx)
+        .expect("Failed to initialize chunk scheduler");
+    // Initialize the database
+    let dsl = dsl(ctx);
+    // Create the player table if it doesn't exist
+    dsl.create_role(1, ctx.identity(), false, false, false)
+        .expect("Failed to create initial role");
+}
 
 #[reducer(client_connected)]
 // Called when a client connects to a SpacetimeDB database server

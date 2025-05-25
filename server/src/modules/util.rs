@@ -1,25 +1,23 @@
-use spacetimedb::{reducer, table, Identity, ReducerContext, Table, Timestamp};
-use crate::modules::uuid::StUuid;
+use spacetimedb::{table, Identity, ReducerContext, Timestamp};
+use spacetimedsl::dsl;
 
-
+#[dsl(plural_name = player_audits)]
 #[table(name = player_audit, public)]
 pub struct PlayerAudit {
-    pub player_uuid: StUuid,
-    pub login_token: Identity,
+    #[primary_key]
+    #[auto_inc]
+    id: i64,
+    pub user_identity: Identity,
     pub action: String,
-    pub timestamp: Timestamp,
+    created_at: Timestamp,
+    modified_at: Timestamp,
 }
 
-#[reducer]
-pub fn log_player_action_audit(ctx: &ReducerContext, uuid: StUuid, action: String) {
-    // Get the player record from the database. Created it if need be.
-    
-    log::debug!("User {:?} performed action: {}", ctx.sender, action);
-    ctx.db.player_audit()
-        .insert(PlayerAudit {
-            player_uuid: uuid,
-            login_token: ctx.sender,
-            action,
-            timestamp: ctx.timestamp,
-        });
+pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) {
+    let dsl = dsl(ctx);
+    log::trace!("User {:?} performed action: {}", ctx.sender, action);
+    dsl
+        .create_player_audit(ctx.sender, action)
+        .expect("Failed to create audit record");
 }
+

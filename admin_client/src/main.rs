@@ -10,12 +10,6 @@ fn main() {
     // Connect to the database
     let ctx: DbConnection = connect_to_db();
 
-    // Register callbacks to run in response to database events.
-    register_callbacks(&ctx);
-
-    // Subscribe to SQL queries in order to construct a local partial replica of the database.
-    subscribe_to_tables(&ctx);
-
     // Spawn a thread, where the connection will process messages and invoke callbacks.
     ctx.run_threaded();
 
@@ -41,7 +35,7 @@ fn connect_to_db() -> DbConnection {
         // If the user has previously connected, we'll have saved a token in the `on_connect` callback.
         // In that case, we'll load it and pass it to `with_token`,
         // so we can re-authenticate as the same `Identity`.
-        //.with_token(creds_store().load().expect("Error loading credentials"))
+        .with_token(creds_store().load().expect("Error loading credentials"))
         // Set the database name we chose when we called `spacetime publish`.
         .with_module_name(DB_NAME)
         // Set the URI of the SpacetimeDB host that's running our database.
@@ -84,44 +78,53 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
-/// Register all the callbacks our app will use to respond to database events.
-fn register_callbacks(_ctx: &DbConnection) {
-    // Register a callback on the positiontable to be used on position updates
-
-    // ctx.db.player().on_update(player_updated);
-    // ctx.db.player().on_insert(player_inserted);
-
-}
-
- 
-fn subscribe_to_tables(ctx: &DbConnection) {
-    ctx.subscription_builder()
-        .on_applied(on_sub_applied)
-        .on_error(on_sub_error)
-        .subscribe(["SELECT * FROM player"]);
-}
-
-fn on_sub_applied(_ctx: &SubscriptionEventContext) {
-    println!("Fully connected and all subscriptions applied.");
-    println!("Use /name to set your name, or type a message!");
-}
-
-/// Or `on_error` callback:
-/// print the error, then exit the process.
-fn on_sub_error(_ctx: &ErrorContext, err: Error) {
-    eprintln!("Subscription failed: [{}]", err);
-    std::process::exit(1);
-}
-
-
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
-fn user_input_loop(_ctx: &DbConnection) {
+fn user_input_loop(ctx: &DbConnection) {
     for line in std::io::stdin().lines() {
-        println!("Line input:{:?}", line);
-        let Ok(_line) = line else {
+        let Ok(line) = line else {
             panic!("Failed to read from stdin.");
         };
-
+        if let Some(_cmd) = line.strip_prefix("/") {
+            if let Some(username) = line.strip_prefix("/setname " ) {
+                if let Err(e) = ctx.reducers.set_username(username.to_string()) {
+                    eprintln!("Error setting user name: {:?}", e);
+                }
+            } else if let Some(args) = line.strip_prefix("/setpos ") {
+                // Parse three floats from the args
+                let parts: Vec<&str> = args.split_whitespace().collect();
+                if parts.len() == 3 {
+                    let x = parts[0].parse::<f32>();
+                    let y = parts[1].parse::<f32>();
+                    let z = parts[2].parse::<f32>();
+                    match (x, y, z) {
+                        (Ok(x), Ok(y), Ok(z)) => {
+                            if let Some(player_identity) = ctx.try_identity() {
+                                let pos = module_bindings::StdbPosition { player_identity, x, y, z};
+                                if let Err(e) = ctx.reducers.update_my_position(pos) {
+                                    eprintln!("Error updating position: {:?}", e);
+                                }
+                            } else {
+                                eprintln!("Could not determine your player identity.");
+                            }
+                        },
+                        _ => {
+                            eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
+                        }
+                    }
+                } else {
+                    eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
+                }
+            } else {
+                println!("Unknown command: {}", line);
+            }
+        }
+        else if let Some(message) = line.strip_prefix("") {
+            if let Err(e) = ctx.reducers.send_global_chat(message.to_string()) {
+                eprintln!("Error sending message: {:?}", e);
+            }
+        } else {
+            println!("Unknown command: {}", line);
         }
     }
+}
