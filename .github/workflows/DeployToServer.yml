@@ -23,6 +23,6 @@ jobs:
       working-directory: server/
       run: | 
         spacetime publish --server local multiuserpositions --delete-data -y
-      shell: '"C:\Program Files\Git\bin\bash.exe"'
+      shell: 'cmd.exe'
       
       
