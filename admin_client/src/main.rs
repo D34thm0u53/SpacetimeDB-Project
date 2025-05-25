@@ -1,7 +1,7 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Identity};
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Timestamp};
 // Add these dependencies to your Cargo.toml:
 // ureq = "2"
 // serde_json = "1"
@@ -35,7 +35,7 @@ fn connect_to_db() -> DbConnection {
         // If the user has previously connected, we'll have saved a token in the `on_connect` callback.
         // In that case, we'll load it and pass it to `with_token`,
         // so we can re-authenticate as the same `Identity`.
-        //.with_token(creds_store().load().expect("Error loading credentials"))
+        .with_token(creds_store().load().expect("Error loading credentials"))
         // Set the database name we chose when we called `spacetime publish`.
         .with_module_name(DB_NAME)
         // Set the URI of the SpacetimeDB host that's running our database.
@@ -85,11 +85,38 @@ fn user_input_loop(ctx: &DbConnection) {
         let Ok(line) = line else {
             panic!("Failed to read from stdin.");
         };
-        if let Some(_cmd) = line.strip_prefix("/"){
+        if let Some(cmd) = line.strip_prefix("/") {
             if let Some(username) = line.strip_prefix("/setname " ) {
                 if let Err(e) = ctx.reducers.set_username(username.to_string()) {
-                eprintln!("Error setting user name: {:?}", e);
+                    eprintln!("Error setting user name: {:?}", e);
                 }
+            } else if let Some(args) = line.strip_prefix("/setpos ") {
+                // Parse three floats from the args
+                let parts: Vec<&str> = args.split_whitespace().collect();
+                if parts.len() == 3 {
+                    let x = parts[0].parse::<f32>();
+                    let y = parts[1].parse::<f32>();
+                    let z = parts[2].parse::<f32>();
+                    match (x, y, z) {
+                        (Ok(x), Ok(y), Ok(z)) => {
+                            if let Some(player_identity) = ctx.try_identity() {
+                                let pos = module_bindings::StdbPosition { player_identity, x, y, z};
+                                if let Err(e) = ctx.reducers.update_my_position(pos) {
+                                    eprintln!("Error updating position: {:?}", e);
+                                }
+                            } else {
+                                eprintln!("Could not determine your player identity.");
+                            }
+                        },
+                        _ => {
+                            eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
+                        }
+                    }
+                } else {
+                    eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
+                }
+            } else {
+                println!("Unknown command: {}", line);
             }
         }
         else if let Some(message) = line.strip_prefix("") {
@@ -99,7 +126,5 @@ fn user_input_loop(ctx: &DbConnection) {
         } else {
             println!("Unknown command: {}", line);
         }
-
-        
     }
 }

@@ -1,7 +1,7 @@
 mod module_bindings;
 use module_bindings::*;
 
-use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table};
+use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table, TableWithPrimaryKey, Timestamp};
 
 
 fn main() {
@@ -39,7 +39,7 @@ fn connect_to_db() -> DbConnection {
         // If the user has previously connected, we'll have saved a token in the `on_connect` callback.
         // In that case, we'll load it and pass it to `with_token`,
         // so we can re-authenticate as the same `Identity`.
-        //.with_token(creds_store().load().expect("Error loading credentials"))
+        .with_token(creds_store().load().expect("Error loading credentials"))
         // Set the database name we chose when we called `spacetime publish`.
         .with_module_name(DB_NAME)
         // Set the URI of the SpacetimeDB host that's running our database.
@@ -50,7 +50,7 @@ fn connect_to_db() -> DbConnection {
 }
 
 fn creds_store() -> credentials::File {
-    credentials::File::new("multiuserpositions")
+    credentials::File::new("readerclient")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.
@@ -94,7 +94,12 @@ fn subscribe_to_tables(ctx: &DbConnection) {
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
         .subscribe(["SELECT * FROM player_ignore_pair"]);
+    ctx.subscription_builder()
+        .on_applied(on_sub_applied)
+        .on_error(on_sub_error)
+        .subscribe(["SELECT * FROM entity_position"]);
 }
+
 
 fn on_sub_applied(_ctx: &SubscriptionEventContext) {
     println!("Fully connected and all subscriptions applied.");
@@ -112,6 +117,8 @@ fn register_callbacks(ctx: &DbConnection) {
     // When a new user joins, print a notification.
 
     ctx.db.global_chat_message().on_insert(on_msg_inserted);
+
+    ctx.db.entity_position().on_update(on_entity_position_updated);
 
     // When we fail to set our name, print a warning.
 
@@ -134,6 +141,15 @@ fn on_msg_inserted(ctx: &EventContext, msg: &GlobalChatMessage) {
 }
 
 
+fn on_entity_position_updated(ctx: &EventContext, old_pos: &EnityPosition, new_pos: &EnityPosition) {
+    // Get the current user's id (assuming it's available via ctx.identity())
+    let my_id = ctx.identity();
+    if new_pos.player_identity != my_id {
+        println!("{:?}", new_pos);
+    }
+    
+}
+
 
 /// Read each line of standard input, and either set our name or send a message as appropriate.
 fn user_input_loop(ctx: &DbConnection) {
@@ -152,6 +168,35 @@ fn user_input_loop(ctx: &DbConnection) {
                 eprintln!("Error setting user name: {:?}", e);
                 }
             }
+            if let Some(args) = line.strip_prefix("/setpos ") {
+                // Parse three floats from the args
+                let parts: Vec<&str> = args.split_whitespace().collect();
+                if parts.len() == 3 {
+                    let x = parts[0].parse::<f32>();
+                    let y = parts[1].parse::<f32>();
+                    let z = parts[2].parse::<f32>();
+                    match (x, y, z) {
+                        (Ok(x), Ok(y), Ok(z)) => {
+                            if let Some(player_identity) = ctx.try_identity() {
+                                let pos = module_bindings::StdbPosition { player_identity, x, y, z};
+                                if let Err(e) = ctx.reducers.update_my_position(pos) {
+                                    eprintln!("Error updating position: {:?}", e);
+                                }
+                            } else {
+                                eprintln!("Could not determine your player identity.");
+                            }
+                        },
+                        _ => {
+                            eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
+                        }
+                    }
+                } else {
+                    eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
+                }
+            } else {
+                println!("Unknown command: {}", line);
+            }
+            
         }
     }
 }

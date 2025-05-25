@@ -46,30 +46,3 @@ impl From<Uuid> for StUuid {
     }
 }
 
-// ===/ SpacetimeDB UUID implementation /===
-
-/* 
-#[spacetimedb::table(name = person)]
-pub struct Person {
-    #[primary_key]
-    uuid: StUuid,
-    name: String,
-}
-
-#[spacetimedb::reducer]
-pub fn add(ctx: &ReducerContext, name: String) {
-    ctx.db.person().insert(Person {
-        name,
-        uuid: StUuid::new(ctx),
-    });
-}
-
-#[spacetimedb::reducer]
-pub fn say_hello(ctx: &ReducerContext) {
-    for person in ctx.db.person().iter() {
-        log::info!("Hello, {} - {}!", person.name, person.uuid);
-    }
-    log::info!("Hello, World!");
-}
-
-*/

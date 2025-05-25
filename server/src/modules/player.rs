@@ -37,14 +37,23 @@ let dsl = dsl(ctx);
                 return;
             }
             // Update the player's username in the database
-            let player = ctx.db.player().identity().find(ctx.sender)
-                .unwrap_or_else(|| create_player(ctx));
-            ctx.db.player().identity().update(
-                Player {
-                    username: valid_username,
-                    ..player
-                }
+
+            let mut player = dsl
+                .get_player_by_identity(&ctx.sender)
+                .unwrap_or_else(|| create_player(ctx)); 
+
+            player.username = valid_username.clone();
+
+            log_player_action_audit(
+                ctx,
+                &format!(
+                    "Player [{}] (Identity: [{}]) set username to [{}]",
+                    &player.username, &player.identity, &valid_username
+                ),
             );
+
+            dsl.update_player_by_identity(player).expect("Failed to update player record");
+            
         },
         Err(err) => {
             log::warn!("Invalid username: {}", err);
@@ -102,8 +111,8 @@ fn create_player(ctx: &ReducerContext) -> Player {
     // Fetch a random username from the API
     let username = ctx.sender.to_string();
     dsl.create_player(ctx.sender, &username, true)
-        .expect("Failed to create player record");
-    ctx.db.player().identity().find(ctx.sender).unwrap()
+        .expect("Failed to create player record")
+
 }
 
 /// Takes a name and checks if it's acceptable as a user's name.
