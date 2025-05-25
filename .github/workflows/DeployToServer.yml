@@ -11,6 +11,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+
+  
   build:
 
     runs-on: self-hosted
@@ -21,6 +23,6 @@ jobs:
       working-directory: server/
       run: | 
         spacetime publish --server local multiuserpositions --delete-data -y
-      shell: bash
+      shell: cmd
       
       
