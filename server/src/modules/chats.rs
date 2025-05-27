@@ -49,7 +49,7 @@ impl GlobalChatMessage {
 pub fn ignore_target_player(ctx: &ReducerContext, username: String) -> Result<(), String> {
     let dsl = dsl(ctx);
     // Check if the target player is already ignored
-    let target_identity = match dsl.get_player_by_username(&username) {
+    let target_identity = match dsl.get_online_player_by_username(&username) {
         Some(player) => player.identity,
         None => return Err("Target player not found.".to_string()),
     };
@@ -71,7 +71,7 @@ pub fn ignore_target_player(ctx: &ReducerContext, username: String) -> Result<()
 pub fn unignore_target_player(ctx: &ReducerContext, username: String) -> Result<(), String> {
     let dsl = dsl(ctx);
     // Check if the target player is already ignored
-    let target_identity = match dsl.get_player_by_username(&username) {
+    let target_identity = match dsl.get_online_player_by_username(&username) {
         Some(player) => player.identity,
         None => return Err("Target player not found.".to_string()),
     };
