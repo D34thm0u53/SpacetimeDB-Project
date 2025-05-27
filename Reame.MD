@@ -1,0 +1,56 @@
+
+## Server Source Structure (`server/src/`)
+
+### Core File
+
+- **lib.rs**
+  - Entry point for the server logic. Initializes the database and chunk scheduler on startup.
+  - Handles client connection and disconnection events.
+  - Imports modules for player and role management, and integrates the core scheduling logic.
+
+### Modules (`server/src/modules/`)
+
+- **admin_tools.rs**
+  - Placeholder file. will contain a range of tools for modifying / manipulating another users profile and related records.
+   - Planned features include:
+   - Forced Name Changes
+   - Modification of ignore lists
+   - updates of enitity position for a player id
+   - adding a player to a table used in rls to: block a user from recieving player positions. - soft player blocking
+
+- **chats.rs**
+  - Implements chat-related functionality.
+  - Planned features include:
+  -- Report a chat message
+  -- Mark a chat message as removed - keep the record, but prevent it from being sent to a client via RLS.
+
+
+- **common.rs**
+  - Contains shared types, traits, or functions used by multiple modules.
+
+- **entity_positions.rs**
+  - Manages positions of entities within the game world. Handles storage, updates, and potentially queries for entity locations.
+
+- **mod.rs**
+  - Module declaration file for organizing and exposing submodules within `modules/`.
+
+- **player.rs**
+  - Handles player logic, such as connection events, player data, and game-related actions.
+
+- **roles.rs**
+  - Manages user roles, permissions, and role-related behaviors within the game or server environment.
+
+- **util.rs**
+  - Utility functions and helpers used throughout the modules.
+
+- **uuid.rs**
+  - Functions for generating and handling UUIDs for unique identifiers within the server.
+
+### Schedulers (`server/src/schedulers/`)
+
+- **mod.rs**
+  - Module declaration file for organizing and exposing submodules within `schedulers/`.
+
+- **scheduler_chunks.rs**
+  - Implements chunk scheduling logic, likely for dividing the game world or server resources into manageable "chunks" and handling their scheduling (loading/unloading, updates, etc.).
+
