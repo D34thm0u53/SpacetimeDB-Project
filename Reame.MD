@@ -58,7 +58,7 @@
   - Handles player logic, such as connection events, player data, and game-related actions.
   - Tables:
     - online_player
-    - offlin_player
+    - offline_player
   - players are moved from one table to the next at login/logoff events to avoind an additional step of filtering on online players for multiple queries.
   
 - **roles.rs**
