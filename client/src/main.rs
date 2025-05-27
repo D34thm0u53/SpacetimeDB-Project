@@ -23,6 +23,8 @@ fn main() {
 
 /// The URI of the SpacetimeDB instance hosting our chat database and module.
 const HOST: &str = "http://10.1.1.236:3000";
+// const HOST: &str = "https://maincloud.spacetimedb.com";
+
 
 /// The database name we chose when we published our module.
 const DB_NAME: &str = "multiuserpositions";
@@ -50,7 +52,7 @@ fn connect_to_db() -> DbConnection {
 }
 
 fn creds_store() -> credentials::File {
-    credentials::File::new("readerclient")
+    credentials::File::new("maincloud_readerclient")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.
@@ -94,6 +96,10 @@ fn subscribe_to_tables(ctx: &DbConnection) {
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
         .subscribe(["SELECT * FROM player_ignore_pair"]);
+    ctx.subscription_builder()
+        .on_applied(on_sub_applied)
+        .on_error(on_sub_error)
+        .subscribe(["SELECT * FROM entity_chunk"]);
     ctx.subscription_builder()
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
@@ -141,7 +147,7 @@ fn on_msg_inserted(ctx: &EventContext, msg: &GlobalChatMessage) {
 }
 
 
-fn on_entity_position_updated(ctx: &EventContext, _old_pos: &EnityPosition, new_pos: &EnityPosition) {
+fn on_entity_position_updated(ctx: &EventContext, _old_pos: &EntityPosition, new_pos: &EntityPosition) {
     // Get the current user's id (assuming it's available via ctx.identity())
     let my_id = ctx.identity();
     if new_pos.player_identity != my_id {
@@ -158,6 +164,11 @@ fn user_input_loop(ctx: &DbConnection) {
             panic!("Failed to read from stdin.");
         };
         if let Some(_cmd) = line.strip_prefix("/"){
+            if let Some(username) = line.strip_prefix("/setname " ) {
+                if let Err(e) = ctx.reducers.set_username(username.to_string()) {
+                    eprintln!("Error setting user name: {:?}", e);
+                }
+            }
             if let Some(username) = line.strip_prefix("/ignore " ) {
                 if let Err(e) = ctx.reducers.ignore_target_player(username.to_string()) {
                 eprintln!("Error setting user name: {:?}", e);
@@ -178,7 +189,12 @@ fn user_input_loop(ctx: &DbConnection) {
                     match (x, y, z) {
                         (Ok(x), Ok(y), Ok(z)) => {
                             if let Some(player_identity) = ctx.try_identity() {
-                                let pos = module_bindings::StdbPosition { player_identity, x, y, z};
+                                let pos = module_bindings::EntityPosition {
+                                    player_identity,
+                                    x,
+                                    y,
+                                    z,
+                                };
                                 if let Err(e) = ctx.reducers.update_my_position(pos) {
                                     eprintln!("Error updating position: {:?}", e);
                                 }
@@ -193,7 +209,8 @@ fn user_input_loop(ctx: &DbConnection) {
                 } else {
                     eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
                 }
-            } else {
+            }
+            else {
                 println!("Unknown command: {}", line);
             }
             

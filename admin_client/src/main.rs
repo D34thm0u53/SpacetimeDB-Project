@@ -19,6 +19,7 @@ fn main() {
 
 /// The URI of the SpacetimeDB instance hosting our chat database and module.
 const HOST: &str = "http://10.1.1.236:3000";
+// const HOST: &str = "https://maincloud.spacetimedb.com";
 
 /// The database name we chose when we published our module.
 const DB_NAME: &str = "multiuserpositions";
@@ -46,7 +47,7 @@ fn connect_to_db() -> DbConnection {
 }
 
 fn creds_store() -> credentials::File {
-    credentials::File::new("multiuserpositions")
+    credentials::File::new("maincloud_multiuserpositions")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.
@@ -90,7 +91,18 @@ fn user_input_loop(ctx: &DbConnection) {
                 if let Err(e) = ctx.reducers.set_username(username.to_string()) {
                     eprintln!("Error setting user name: {:?}", e);
                 }
-            } else if let Some(args) = line.strip_prefix("/setpos ") {
+            }
+            if let Some(username) = line.strip_prefix("/ignore " ) {
+                if let Err(e) = ctx.reducers.ignore_target_player(username.to_string()) {
+                eprintln!("Error setting user name: {:?}", e);
+                }
+            }
+            if let Some(username) = line.strip_prefix("/unignore " ) {
+                if let Err(e) = ctx.reducers.unignore_target_player(username.to_string()) {
+                eprintln!("Error setting user name: {:?}", e);
+                }
+            }
+            if let Some(args) = line.strip_prefix("/setpos ") {
                 // Parse three floats from the args
                 let parts: Vec<&str> = args.split_whitespace().collect();
                 if parts.len() == 3 {
@@ -100,7 +112,12 @@ fn user_input_loop(ctx: &DbConnection) {
                     match (x, y, z) {
                         (Ok(x), Ok(y), Ok(z)) => {
                             if let Some(player_identity) = ctx.try_identity() {
-                                let pos = module_bindings::StdbPosition { player_identity, x, y, z};
+                                let pos = module_bindings::EntityPosition {
+                                    player_identity,
+                                    x,
+                                    y,
+                                    z,
+                                };
                                 if let Err(e) = ctx.reducers.update_my_position(pos) {
                                     eprintln!("Error updating position: {:?}", e);
                                 }
@@ -115,10 +132,49 @@ fn user_input_loop(ctx: &DbConnection) {
                 } else {
                     eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
                 }
-            } else {
-                println!("Unknown command: {}", line);
             }
-        }
+            if let Some(args) = line.strip_prefix("/circle ") {
+                // this command will send position updates to the server to continuously move in a circle
+                // Usage: /circle <radius> <speed>
+                let parts: Vec<&str> = args.split_whitespace().collect();
+                if parts.len() == 2 {
+                    let radius = parts[0].parse::<f32>();
+                    let speed = parts[1].parse::<f32>();
+                    match (radius, speed) {
+                        (Ok(radius), Ok(speed)) => {
+                            if let Some(player_identity) = ctx.try_identity() {
+                                // Spawn a thread to move in a circle
+                                let mut angle = 0.0f32;
+                                println!("Started moving in a circle with radius {} and speed {}", radius, speed);
+                                loop {
+                                    let x = radius * angle.cos();
+                                    let y = 0.0;
+                                    let z = radius * angle.sin();;
+                                    let pos = module_bindings::EntityPosition { player_identity, x, y, z };
+                                    if let Err(e) = ctx.reducers.update_my_position(pos) {
+                                        eprintln!("Error updating position: {:?}", e);
+                                    }
+                                    angle += speed * 0.1;
+                                    if angle > std::f32::consts::TAU {
+                                        angle -= std::f32::consts::TAU;
+                                    }
+                                    std::thread::sleep(std::time::Duration::from_millis(10));
+                                }
+                                
+                                
+                            } else {
+                                eprintln!("Could not determine your player identity.");
+                            }
+                        }
+                        _ => {
+                            eprintln!("Usage: /circle <radius> <speed> (both floats)");
+                        }
+                    }
+                } else {
+                    eprintln!("Usage: /circle <radius> <speed> (both floats)");
+                }
+                
+            }
         else if let Some(message) = line.strip_prefix("") {
             if let Err(e) = ctx.reducers.send_global_chat(message.to_string()) {
                 eprintln!("Error sending message: {:?}", e);
@@ -127,4 +183,4 @@ fn user_input_loop(ctx: &DbConnection) {
             println!("Unknown command: {}", line);
         }
     }
-}
+    }}
