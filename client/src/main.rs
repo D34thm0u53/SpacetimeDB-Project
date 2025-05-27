@@ -22,8 +22,8 @@ fn main() {
 }
 
 /// The URI of the SpacetimeDB instance hosting our chat database and module.
-const HOST: &str = "http://10.1.1.236:3000";
-// const HOST: &str = "https://maincloud.spacetimedb.com";
+// const HOST: &str = "http://10.1.1.236:3000";
+const HOST: &str = "https://maincloud.spacetimedb.com";
 
 
 /// The database name we chose when we published our module.
@@ -52,7 +52,8 @@ fn connect_to_db() -> DbConnection {
 }
 
 fn creds_store() -> credentials::File {
-    credentials::File::new("maincloud_readerclient")
+    credentials::File::new("readerclient")
+    // credentials::File::new("maincloud_readerclient")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.

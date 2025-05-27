@@ -47,7 +47,8 @@ fn connect_to_db() -> DbConnection {
 }
 
 fn creds_store() -> credentials::File {
-    credentials::File::new("maincloud_multiuserpositions")
+    credentials::File::new("multiuserpositions")
+    // credentials::File::new("maincloud_multiuserpositions")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.
