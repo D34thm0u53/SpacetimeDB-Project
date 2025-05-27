@@ -12,7 +12,7 @@
 
 - **admin_tools.rs**
   - Placeholder file. will contain a range of tools for modifying / manipulating another users profile and related records.
-   - Planned features include:
+  - Planned features include:
    - Forced Name Changes
    - Modification of ignore lists
    - updates of enitity position for a player id
