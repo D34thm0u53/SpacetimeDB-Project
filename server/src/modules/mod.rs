@@ -1,4 +1,4 @@
-pub mod entity_positions;
+pub mod entity_position;
 pub mod player;
 pub mod roles;
 pub mod admin_tools;
