@@ -1,4 +1,4 @@
-use spacetimedb::{ReducerContext};
+use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
 use spacetimedb::{reducer};
 use spacetimedsl::dsl;
 
@@ -9,17 +9,21 @@ use modules::roles::*;
 
 pub mod schedulers;
 use schedulers::scheduler_chunks::{self};
+use modules::common::*;
 
 
 #[reducer(init)]
 // Called when a client connects to a SpacetimeDB database server
 fn database_init(ctx: &ReducerContext) {
-
+    let dsl = dsl(ctx);
+    // initi the owner table
+    create_owner_record(ctx)
+        .expect("Failed to create owner record");
     
     scheduler_chunks::init(ctx)
         .expect("Failed to initialize chunk scheduler");
     // Initialize the database
-    let dsl = dsl(ctx);
+
     // Create the player table if it doesn't exist
     dsl.create_role(1, ctx.identity(), false, false, false)
         .expect("Failed to create initial role");

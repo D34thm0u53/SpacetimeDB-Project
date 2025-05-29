@@ -1,4 +1,4 @@
-use spacetimedb::{ReducerContext};
+use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
 
 use spacetimedsl::dsl;
 
@@ -6,6 +6,8 @@ use spacetimedsl::dsl;
 use crate::modules::roles::*;
 use crate::modules::player::*;
 use crate::modules::entity_position::*;
+use crate::modules::common::*;
+use crate::modules::util::*;
 
 
 
@@ -23,10 +25,14 @@ fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
 #[spacetimedb::reducer]
 pub fn cleanup_inactive_players(ctx: &ReducerContext) {
     // Authorization check: Ensure the caller is a game admin or server admin
-    // if !is_admin_tools_authorized(ctx) ||  try_server_only(ctx).is_err(){
-    //     log::warn!("Unauthorized attempt to cleanup inactive players by {:?}", ctx.sender);
-    //     return;
-    // }
+    if !is_admin_tools_authorized(ctx) ||  try_server_only(ctx).is_err(){
+        // Log unauthorized access attempt in user action audit
+        log_player_action_audit(ctx, &format!("Unauthorized attempt of admin tool: Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender));
+
+        // Log unauthorized access attempt
+        log::warn!("Unauthorized attempt of admin tool: Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender);
+        return;
+    }
 
     let dsl = dsl(ctx);
 
