@@ -4,7 +4,14 @@ use std::{time::Duration};
 use spacetimedb::{ReducerContext};
 use spacetimedsl::{dsl};
 
-use crate::modules::{player::*, entity_positions::*, common::*};
+use crate::modules::{player::*, entity_position::*, common::*};
+
+
+/* 
+Tables
+- global_configuration: Stores global configuration settings for the server.
+- chunk_check_timer: A scheduled task that checks and updates player chunk positions based on their current entity positions.
+*/
 
 #[dsl(plural_name = global_configurations)]
 #[spacetimedb::table(name = global_configuration)]
@@ -24,6 +31,13 @@ pub struct ChunkCheckTimer {
     scheduled_at: spacetimedb::ScheduleAt,
     current_update: u8,
 }
+
+
+/* 
+Reducers
+- init: Initializes the global configuration and sets up the chunk check timer.
+- calculate_current_chunks: A scheduled task that updates player chunk positions based on their current entity positions.
+*/
 
 pub fn init(ctx: &ReducerContext) -> Result<(), String> {
     let dsl = dsl(ctx); // Waiting for DSL implementation of timers

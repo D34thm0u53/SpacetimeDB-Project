@@ -150,7 +150,7 @@ fn user_input_loop(ctx: &DbConnection) {
                                 loop {
                                     let x = radius * angle.cos();
                                     let y = 0.0;
-                                    let z = radius * angle.sin();;
+                                    let z = radius * angle.sin();
                                     let pos = module_bindings::EntityPosition { player_identity, x, y, z };
                                     if let Err(e) = ctx.reducers.update_my_position(pos) {
                                         eprintln!("Error updating position: {:?}", e);
