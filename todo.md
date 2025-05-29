@@ -7,19 +7,21 @@
 - Chat system (global chat, ignore lists)
 - Chunk scheduling and management
 - Admin tools for player and entity management
+- Friends
+- Health system
 
 ## Upcoming Work
 - Weapons table: store weapon stats (model id, damage, cone of fire, bloom, etc.)
 - User weapons table: track which weapons each user has unlocked (server-controlled)
 - Game session management (active matches, teams, results)
 - Inventory/loadout system
-- Health & damage system
+- damage system
 - Scoring & leaderboards
 - Authentication & account management
 - Progression & unlocks (XP, leveling, cosmetics)
 - Anti-cheat & security
 - Event & audit logging
-- Friends & social features
+- social features
 - Server-side physics/validation
 - Customization & cosmetics
 - Scheduled tasks/events

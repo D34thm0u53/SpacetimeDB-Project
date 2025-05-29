@@ -1,11 +1,13 @@
-use spacetimedb::{table, reducer, Identity, ReducerContext, Table, Timestamp};
+use spacetimedb::{ReducerContext, Timestamp, Identity};
+use spacetimedsl::dsl;
 
-#[derive(Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq, spacetimedb::SpacetimeType)]
 pub enum FriendshipStatus {
     Pending,
     Active,
 }
 
+#[dsl]
 #[table(name = friendship, public)]
 pub struct Friendship {
     #[primary_key]
@@ -19,50 +21,54 @@ pub struct Friendship {
 
 #[reducer]
 pub fn send_friend_request(ctx: &ReducerContext, addressee: Identity) {
+    let dsl = dsl(ctx);
     if ctx.sender == addressee {
         return; // Cannot friend yourself
     }
     // Prevent duplicate requests or existing friendships
-    if ctx.db.friendship().requester().addressee().find(ctx.sender, addressee).is_none() {
-        ctx.db.friendship().insert(Friendship {
+    if dsl.db().friendship().requester().addressee().find((ctx.sender, addressee)).is_none() {
+        dsl.db().friendship().create_row(Friendship {
             requester: ctx.sender,
             addressee,
             status: FriendshipStatus::Pending,
             requested_at: ctx.timestamp,
             updated_at: ctx.timestamp,
-        });
+        }).ok();
     }
 }
 
-#[reducer]
+#[spacetimedb::reducer]
 pub fn accept_friend_request(ctx: &ReducerContext, requester: Identity) {
-    if let Some(mut friendship) = ctx.db.friendship().requester().addressee().find(requester, ctx.sender) {
+    let dsl = dsl(ctx);
+    if let Some(mut friendship) = dsl.db().friendship().requester().addressee().find((requester, ctx.sender)) {
         if friendship.status == FriendshipStatus::Pending {
             friendship.status = FriendshipStatus::Active;
             friendship.updated_at = ctx.timestamp;
-            ctx.db.friendship().requester().addressee().update(friendship);
+            dsl.db().friendship().requester().addressee().update(friendship);
         }
     }
 }
 
-#[reducer]
+#[spacetimedb::reducer]
 pub fn decline_friend_request(ctx: &ReducerContext, requester: Identity) {
-    if let Some(friendship) = ctx.db.friendship().requester().addressee().find(requester, ctx.sender) {
+    let dsl = dsl(ctx);
+    if let Some(friendship) = dsl.db().friendship().requester().addressee().find((requester, ctx.sender)) {
         if friendship.status == FriendshipStatus::Pending {
-            ctx.db.friendship().requester().addressee().delete(friendship);
+            dsl.db().friendship().requester().addressee().delete(friendship);
         }
     }
 }
 
-#[reducer]
+#[spacetimedb::reducer]
 pub fn remove_friend(ctx: &ReducerContext, other: Identity) {
+    let dsl = dsl(ctx);
     // Remove if sender is requester
-    if let Some(friendship) = ctx.db.friendship().requester().addressee().find(ctx.sender, other) {
-        ctx.db.friendship().requester().addressee().delete(friendship);
+    if let Some(friendship) = dsl.db().friendship().requester().addressee().find((ctx.sender, other)) {
+        dsl.db().friendship().requester().addressee().delete(friendship);
         return;
     }
     // Remove if sender is addressee
-    if let Some(friendship) = ctx.db.friendship().requester().addressee().find(other, ctx.sender) {
-        ctx.db.friendship().requester().addressee().delete(friendship);
+    if let Some(friendship) = dsl.db().friendship().requester().addressee().find((other, ctx.sender)) {
+        dsl.db().friendship().requester().addressee().delete(friendship);
     }
 }

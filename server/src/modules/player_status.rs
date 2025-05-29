@@ -1,5 +1,7 @@
-use spacetimedb::{table, Identity, Timestamp};
+use spacetimedb::{Timestamp, Identity};
+use spacetimedsl::dsl;
 
+#[dsl(plural_name = player_statuses)]
 #[table(name = player_status, public)]
 pub struct PlayerStatus {
     #[primary_key]
