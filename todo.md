@@ -1,0 +1,28 @@
+# TODO
+
+## Completed Work
+- Player management (connection, disconnection, username, audit)
+- Roles and permissions system (roles, roles audit, admin tools)
+- Entity position and rotation tracking
+- Chat system (global chat, ignore lists)
+- Chunk scheduling and management
+- Admin tools for player and entity management
+
+## Upcoming Work
+- Weapons table: store weapon stats (model id, damage, cone of fire, bloom, etc.)
+- User weapons table: track which weapons each user has unlocked (server-controlled)
+- Game session management (active matches, teams, results)
+- Inventory/loadout system
+- Health & damage system
+- Scoring & leaderboards
+- Authentication & account management
+- Progression & unlocks (XP, leveling, cosmetics)
+- Anti-cheat & security
+- Event & audit logging
+- Friends & social features
+- Server-side physics/validation
+- Customization & cosmetics
+- Scheduled tasks/events
+
+---
+Add new items as needed. Mark completed items with a checkmark (✔) or move them to the completed section.
