@@ -1,77 +1,48 @@
-use spacetimedb::{ReducerContext, Timestamp, Identity};
+use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
 use spacetimedsl::dsl;
 
 use crate::modules::chats::*;
 
-#[derive(Clone, PartialEq, Eq, spacetimedb::SpacetimeType)]
+use super::common::GetCountOfOwnerIdentityRows;
+
+#[derive(SpacetimeType, Debug, Clone, PartialEq, Eq,)]
 pub enum FriendshipStatus {
     Pending,
+    Rejected,
     Active,
+    
 }
 
-#[dsl(plural_name = friendships, unique_index(name = party_one_&_party_two))]
-#[table(name = friendship, public, )]
+#[dsl(plural_name = friendships, unique_index(name = party_one_and_party_two))]
+#[table(name = friendship, public, index(name = party_one_and_party_two, btree(columns = [party_one, party_two])))]
 pub struct Friendship {
     #[primary_key]
+    #[auto_inc]
     id: u64,
     pub party_one: Identity,
     pub party_two: Identity,
     pub status: FriendshipStatus,
-    pub updated_at: Timestamp,
+    created_at: Timestamp,
+    modified_at: Timestamp,
 }
 
 #[spacetimedb::reducer]
 pub fn send_friend_request(ctx: &ReducerContext, receiver: Identity) -> Result<(), String> {
-    let sender = ctx.sender_identity();
+    let sender = ctx.sender;
     if sender == receiver {
         return Err("Cannot send a friend request to yourself.".to_string());
     }
-
-    let dsl = spacetimedsl::dsl(ctx);
-
+    let dsl = dsl(ctx);
     // Check if receiver is in sender's ignore list
-    if IgnorePair::filter_by_ignorer_and_ignored_user(&dsl, &sender, &receiver).is_some() {
-        // Silently fail as per "Send to Ignored" workflow
-        return Ok(());
+    
+    // Check if a friendship already exists
+    if let Some(existing_friendship) = dsl.get_friendship_by_party_one_and_party_two(party_one, party_two)
     }
-
-    // Check if sender is in receiver's ignore list
-    if IgnorePair::filter_by_ignorer_and_ignored_user(&dsl, &receiver, &sender).is_some() {
-        // Silently fail as per "Send From Ignored" workflow
-        return Ok(());
-    }
-
-    // Check for existing friendship or pending request
-    // Case 1: Sender is party_one, Receiver is party_two
-    if let Some(mut friendship) = Friendship::filter_by_party_one_and_party_two(&dsl, &sender, &receiver) {
-        if friendship.status == FriendshipStatus::Active {
-            // "Send to Existing" workflow
-            return Ok(()); // Already friends, do nothing
-        }
-        // If pending, do nothing, let the other party act or this request is a duplicate.
-        return Ok(());
-    }
-
-    // Case 2: Receiver is party_one, Sender is party_two
-    if let Some(mut friendship) = Friendship::filter_by_party_one_and_party_two(&dsl, &receiver, &sender) {
-        if friendship.status == FriendshipStatus::Active {
-            // "Send to Existing" workflow
-            return Ok(()); // Already friends, do nothing
-        }
-        if friendship.status == FriendshipStatus::Pending {
-            // "Send and Send" workflow: John sends to Mike, Mike had already sent to John.
-            // Accept the existing request.
-            friendship.status = FriendshipStatus::Active;
-            friendship.updated_at = ctx.timestamp();
-            Friendship::update_by_id(&dsl, &friendship.id, friendship)?;
-            return Ok(());
-        }
-    }
-
-    // No existing active friendship or reverse pending request, create a new pending request.
-    dsl.create_friendship(sender, receiver, FriendshipStatus::Pending, ctx.timestamp())?;
-
+    
+    dsl.create_friendship(sender, receiver, FriendshipStatus::Pending);
     Ok(())
+
+    
 }
 
 #[spacetimedb::reducer]
@@ -114,4 +85,3 @@ pub fn decline_friend_request(ctx: &ReducerContext, request_sender: Identity) ->
 
 // TODO: Add reducers for managing ignore list: add_to_ignore_list, remove_from_ignore_list
 // TODO: Add reducer for removing an active friendship (unfriending)
-

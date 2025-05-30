@@ -1,4 +1,4 @@
-use spacetimedb::{Timestamp, Identity};
+use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
 use spacetimedsl::dsl;
 
 #[dsl(plural_name = player_statuses)]

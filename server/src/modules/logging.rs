@@ -1,4 +1,4 @@
-use spacetimedb::{ReducerContext, Timestamp, Identity};
+use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
 use spacetimedsl::dsl;
 
 
@@ -32,13 +32,13 @@ pub struct AuditLog {
 pub fn log_event(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
     
-    dsl.create_event_log(ctx.sender, description.clone());
+    dsl.create_event_log(ctx.sender, &description);
 }
 
 
 pub fn log_audit(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
 
-    dsl.create_audit_log(ctx.sender, description.clone());
+    dsl.create_audit_log(ctx.sender, &description);
 
 }
