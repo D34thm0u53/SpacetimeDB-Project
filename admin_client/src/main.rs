@@ -93,6 +93,43 @@ fn user_input_loop(ctx: &DbConnection) {
                     eprintln!("Error setting user name: {:?}", e);
                 }
             }
+            if let Some(args) = line.strip_prefix("/friend " ) {
+                let parts: Vec<&str> = args.split_whitespace().collect();
+                if parts.len() == 2 {
+                    let action = parts[0];
+                    let target_username = parts[1];
+
+                    if action == "send" || action == "request" {
+                        ctx.reducers.send_friend_request(target_username.to_string())
+                            .expect("Failed to send friend request");
+                    } else if action == "accept" {
+                        ctx.reducers.accept_friend_request(target_username.to_string())
+                            .expect("Failed to accept friend request");
+                    } else if action == "decline" {
+                        ctx.reducers.decline_friend_request(target_username.to_string())
+                            .expect("Failed to decline friend request");
+                    } else {
+                        eprintln!("Unknown action: {}. Use 'send', 'accept', or 'decline'.", action);
+                    }
+                } else {
+                    eprintln!("Usage: /friend <action> <username> (action: send, accept, decline)");
+                }
+            }
+
+
+
+
+
+            if let Some(args) = line.strip_prefix("/friend accept ") {
+                let parts: Vec<&str> = args.split_whitespace().collect();
+                if parts.len() == 2 {
+                    let target_username = parts[0];
+                    ctx.reducers.accept_friend_request(target_username.to_string())
+                        .expect("Failed to accept friend request");
+                } else {
+                    eprintln!("Usage: /friend accept <username>");
+                }
+            }
             if let Some(username) = line.strip_prefix("/ignore " ) {
                 if let Err(e) = ctx.reducers.ignore_target_player(username.to_string()) {
                 eprintln!("Error setting user name: {:?}", e);

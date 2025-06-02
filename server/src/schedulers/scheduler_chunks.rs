@@ -49,8 +49,6 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
 #[spacetimedb::reducer]
 pub fn calculate_current_chunks(ctx: &ReducerContext, mut timer: ChunkCheckTimer) -> Result<(), String> {
     let dsl = dsl(ctx);
-    try_server_only(ctx)?;
-
     for player in dsl.get_all_online_players() {
 
         timer.current_update += 1;

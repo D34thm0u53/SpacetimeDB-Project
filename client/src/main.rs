@@ -22,8 +22,8 @@ fn main() {
 }
 
 /// The URI of the SpacetimeDB instance hosting our chat database and module.
-// const HOST: &str = "http://10.1.1.236:3000";
-const HOST: &str = "https://maincloud.spacetimedb.com";
+const HOST: &str = "http://10.1.1.236:3000";
+// const HOST: &str = "https://maincloud.spacetimedb.com";
 
 
 /// The database name we chose when we published our module.
@@ -170,6 +170,28 @@ fn user_input_loop(ctx: &DbConnection) {
                     eprintln!("Error setting user name: {:?}", e);
                 }
             }
+            if let Some(args) = line.strip_prefix("/friend " ) {
+                let parts: Vec<&str> = args.split_whitespace().collect();
+                if parts.len() == 2 {
+                    let action = parts[0];
+                    let target_username = parts[1];
+
+                    if action == "send" || action == "request" {
+                        ctx.reducers.send_friend_request(target_username.to_string())
+                            .expect("Failed to send friend request");
+                    } else if action == "accept" {
+                        ctx.reducers.accept_friend_request(target_username.to_string())
+                            .expect("Failed to accept friend request");
+                    } else if action == "decline" {
+                        ctx.reducers.decline_friend_request(target_username.to_string())
+                            .expect("Failed to decline friend request");
+                    } else {
+                        eprintln!("Unknown action: {}. Use 'send', 'accept', or 'decline'.", action);
+                    }
+                } else {
+                    eprintln!("Usage: /friend <action> <username> (action: send, accept, decline)");
+                }
+            }
             if let Some(username) = line.strip_prefix("/ignore " ) {
                 if let Err(e) = ctx.reducers.ignore_target_player(username.to_string()) {
                 eprintln!("Error setting user name: {:?}", e);
@@ -180,35 +202,9 @@ fn user_input_loop(ctx: &DbConnection) {
                 eprintln!("Error setting user name: {:?}", e);
                 }
             }
-            if let Some(args) = line.strip_prefix("/setpos ") {
-                // Parse three floats from the args
-                let parts: Vec<&str> = args.split_whitespace().collect();
-                if parts.len() == 3 {
-                    let x = parts[0].parse::<f32>();
-                    let y = parts[1].parse::<f32>();
-                    let z = parts[2].parse::<f32>();
-                    match (x, y, z) {
-                        (Ok(x), Ok(y), Ok(z)) => {
-                            if let Some(player_identity) = ctx.try_identity() {
-                                let pos = module_bindings::EntityPosition {
-                                    player_identity,
-                                    x,
-                                    y,
-                                    z,
-                                };
-                                if let Err(e) = ctx.reducers.update_my_position(pos) {
-                                    eprintln!("Error updating position: {:?}", e);
-                                }
-                            } else {
-                                eprintln!("Could not determine your player identity.");
-                            }
-                        },
-                        _ => {
-                            eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
-                        }
-                    }
-                } else {
-                    eprintln!("Usage: /setpos <x> <y> <z> (all floats)");
+            if let Some(username) = line.strip_prefix("/friend " ) {
+                if let Err(e) = ctx.reducers.send_friend_request(username.to_string()) {
+                    eprintln!("Error sending friend request: {:?}", e);
                 }
             }
             else {

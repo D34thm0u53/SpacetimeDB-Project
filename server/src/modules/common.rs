@@ -1,7 +1,7 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
 use spacetimedsl::dsl;
 
-
+use super::player::*;
 
 
 #[dsl(plural_name = OwnerIdentities)]
@@ -36,4 +36,40 @@ pub fn create_owner_record(ctx: &ReducerContext) -> Result<(), String> {
         return Ok(()); // Owner record already exists
     }
 
+}
+
+
+/*  get_player_identity_by_username(ctx: &ReducerContext, username: &String) -> Option<Identity>
+Get players Identity by userrname.
+If the receiver is online, we get their identity from the online player list.
+If the receiver is offline, we get their identity from the offline player list.
+If the receiver does not exist, we return None.
+
+Change list :
+01/06/2025 - KS - Initial Version
+*/
+pub fn get_player_identity_by_username(ctx: &ReducerContext, username: &String) -> Option<Identity> {
+    let dsl = dsl(ctx);
+    log::debug!("Looking up player identity for username: {}", username);
+
+    let player_identity = match dsl.get_online_player_by_username(&username) {
+        Some(player) => {
+            log::debug!("Found online player: {} with identity: {:?}", username, player.identity);
+            player.identity
+        },
+        None => {
+            log::debug!("Player {} not found online, checking offline players.", username);
+            match dsl.get_offline_player_by_username(&username) {
+                Some(player) => {
+                    log::debug!("Found offline player: {} with identity: {:?}", username, player.identity);
+                    player.identity
+                },
+                None => {
+                    log::debug!("Player {} not found online or offline.", username);
+                    return None;
+                }
+            }
+        },
+    };
+    Some(player_identity)
 }
