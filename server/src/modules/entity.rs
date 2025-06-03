@@ -1,4 +1,4 @@
-use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
+use spacetimedb::{table, ReducerContext};
 
 use spacetimedsl::dsl;
 

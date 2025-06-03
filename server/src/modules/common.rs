@@ -1,4 +1,4 @@
-use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
+use spacetimedb::{table, Identity, ReducerContext};
 use spacetimedsl::dsl;
 
 use super::player::*;
