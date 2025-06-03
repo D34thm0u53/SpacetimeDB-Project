@@ -1,6 +1,9 @@
-use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
+use spacetimedb::{table, ReducerContext};
 
 use spacetimedsl::dsl;
+
+use crate::modules::entity_position::*;
+use crate::modules::entity_rotation::*;
 
 /* 
 Tables

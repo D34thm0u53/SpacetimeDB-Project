@@ -1,4 +1,4 @@
-use spacetimedb::{table, Identity, ReducerContext, Timestamp, SpacetimeType};
+use spacetimedb::ReducerContext;
 use spacetimedb::{reducer};
 use spacetimedsl::dsl;
 
@@ -8,7 +8,8 @@ use modules::player::*;
 use modules::roles::*;
 
 pub mod schedulers;
-use schedulers::scheduler_chunks::{self};
+use schedulers::*;
+
 use modules::common::*;
 
 
@@ -22,6 +23,9 @@ fn database_init(ctx: &ReducerContext) {
     
     scheduler_chunks::init(ctx)
         .expect("Failed to initialize chunk scheduler");
+
+    scheduler_chat_archive::init(ctx)
+        .expect("Failed to initialize chat archive timer");
     // Initialize the database
 
     // Create the player table if it doesn't exist

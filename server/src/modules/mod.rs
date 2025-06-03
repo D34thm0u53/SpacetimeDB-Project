@@ -1,8 +1,13 @@
 pub mod entity_position;
+pub mod entity_rotation;
+pub mod entity;
 pub mod player;
 pub mod roles;
 pub mod admin_tools;
 pub mod uuid;
 pub mod util;
-pub mod chats;
 pub mod common;
+pub mod chat;
+pub mod friendship;
+pub mod player_status;
+pub mod logging;
