@@ -9,19 +9,24 @@
 - Admin tools for player and entity management
 - Friends
 - Health system
+- social features
+  - player to player Chat
+  - gloabl mute list
+  - auto archive gloabl chat
+  - friend lists
+  - friend management
+- Event & audit logging
+
 
 ## Upcoming Work
 - Weapons table: store weapon stats (model id, damage, cone of fire, bloom, etc.)
 - User weapons table: track which weapons each user has unlocked (server-controlled)
-- Game session management (active matches, teams, results)
 - Inventory/loadout system
 - damage system
 - Scoring & leaderboards
 - Authentication & account management
 - Progression & unlocks (XP, leveling, cosmetics)
 - Anti-cheat & security
-- Event & audit logging
-- social features
 - Server-side physics/validation
 - Customization & cosmetics
 - Scheduled tasks/events
