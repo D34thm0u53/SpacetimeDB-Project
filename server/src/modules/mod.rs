@@ -7,7 +7,7 @@ pub mod admin_tools;
 pub mod uuid;
 pub mod util;
 pub mod common;
-pub mod chats;
+pub mod chat;
 pub mod friendship;
 pub mod player_status;
 pub mod logging;
