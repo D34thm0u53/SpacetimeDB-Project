@@ -32,13 +32,19 @@ pub struct AuditLog {
 pub fn log_event(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
     
-    dsl.create_event_log(ctx.sender, &description);
+    if let Err(e) = dsl.create_event_log(ctx.sender, &description) {
+        // You can log the error or handle it as needed
+        log::error!("Failed to create event log: {:?}", e);
+
+    }
 }
 
 
 pub fn log_audit(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
 
-    dsl.create_audit_log(ctx.sender, &description);
+    if let Err(e) = dsl.create_audit_log(ctx.sender, &description) {
+        log::error!("Failed to create audit log: {:?}", e);
+    }
 
 }
