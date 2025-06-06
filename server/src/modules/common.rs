@@ -40,14 +40,15 @@ pub fn create_owner_record(ctx: &ReducerContext) -> Result<(), String> {
 
 
 /*  get_player_identity_by_username(ctx: &ReducerContext, username: &String) -> Option<Identity>
-Get players Identity by userrname.
-If the receiver is online, we get their identity from the online player list.
-If the receiver is offline, we get their identity from the offline player list.
-If the receiver does not exist, we return None.
-
 Change list :
 01/06/2025 - KS - Initial Version
 */
+/// Get players Identity by username. 
+/// If the receiver is online, we get their identity from the online player list.
+/// 
+/// If the receiver is offline, we get their identity from the offline player list.
+/// 
+/// If the receiver does not exist, we return None.
 pub fn get_player_identity_by_username(ctx: &ReducerContext, username: &String) -> Option<Identity> {
     let dsl = dsl(ctx);
     log::debug!("Looking up player identity for username: {}", username);

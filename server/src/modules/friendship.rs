@@ -65,8 +65,8 @@ pub fn send_friend_request(ctx: &ReducerContext, receiver: String) -> Result<(),
             log::debug!("No existing friendship request found from {} to {}", &ctx.sender, receiver);
             
             // Validate the friendship request
-            if is_valid_friendship_request(ctx, &receiver_identity) == false {
-                // If the request is not valid, return an error
+            if is_valid_friendship_request(ctx, &receiver_identity) {
+                // If the request is valid, proceed to create it
                 if dsl.create_friendship(ctx.sender, receiver_identity, FriendshipStatus::Pending).is_err() {
                     log::error!("Failed to create friendship request from {} to {}", &ctx.sender, receiver);
                     return Err("Failed to create friendship request.".to_string());
@@ -149,7 +149,7 @@ This function checks the following conditions:
 4. The receiver has not sent a friend request to the sender that is still pending.
 
 Change list:
-01/06/2025 - KS - Initail Version
+01/06/2025 - KS - Initial Version
 
  */
 fn is_valid_friendship_request(ctx: &ReducerContext, receiver_identity: &Identity) -> bool {
@@ -192,7 +192,7 @@ fn get_existing_friendship_request(ctx: &ReducerContext, receiver_identity: &Ide
             }
     // Check if a friendship request already exists from the receiver to the sender
     if dsl.get_friendship_by_party_one_and_party_two(&receiver_identity, &ctx.sender).is_some() {
-        let friendship = dsl.get_friendship_by_party_one_and_party_two(&ctx.sender, &receiver_identity).unwrap();
+        let friendship = dsl.get_friendship_by_party_one_and_party_two(&receiver_identity, &ctx.sender).unwrap();
         return Some(friendship);
     }
 

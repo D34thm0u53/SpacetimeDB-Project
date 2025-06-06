@@ -1,6 +1,4 @@
 use std::{time::Duration};
-
-
 use spacetimedb::{ReducerContext};
 use spacetimedsl::{dsl};
 

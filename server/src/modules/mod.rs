@@ -11,3 +11,4 @@ pub mod chat;
 pub mod friendship;
 pub mod player_status;
 pub mod logging;
+pub mod weapon;
