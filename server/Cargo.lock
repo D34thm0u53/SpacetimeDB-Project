@@ -162,7 +162,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -190,7 +190,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -351,12 +351,12 @@ dependencies = [
 
 [[package]]
 name = "prettyplease"
-version = "0.2.32"
+version = "0.1.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "664ec5419c51e34154eec046ebcba56312d5a2fc3b09a06da188e1ad21afadf6"
+checksum = "6c8646e95016a7a6c4adea95bafa8a16baab64b583356217f2c85db4a39d9a86"
 dependencies = [
  "proc-macro2",
- "syn",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -405,6 +405,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "rust-format"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60e7c00b6c3bf5e38a880eec01d7e829d12ca682079f8238a464def3c4b31627"
+dependencies = [
+ "prettyplease",
+ "proc-macro2",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -457,7 +468,7 @@ checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -503,7 +514,7 @@ dependencies = [
  "ident_case",
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -522,9 +533,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41cfbca6e4796309179af17942f37f5e1a7297e7a91fa33d2a20ccad48f50e35"
+checksum = "bf788061790df2c044398dd21342aecc4a19950058e3a2a5c53659a26d62b074"
 dependencies = [
  "bytemuck",
  "derive_more",
@@ -540,32 +551,32 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-bindings-macro"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c60767c5e80fb1d0753834b894c9c3f9eb0ddba351ef4681fe714ff1024e727"
+checksum = "135f9af56c58a5ed97a7d1b9bee60104c866a46e705ab79f57e5f918ad276bdc"
 dependencies = [
  "heck 0.4.1",
  "humantime",
  "proc-macro2",
  "quote",
  "spacetimedb-primitives",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
 name = "spacetimedb-bindings-sys"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b5f6d06e1df203c97ecb7cd404e6a9a1920bfc3b7e16b40d650be6bfabe3292"
+checksum = "c9c71a65f572fc9233d7d035f117a5d0671df54d20e6abf627417ef4fbc41450"
 dependencies = [
  "spacetimedb-primitives",
 ]
 
 [[package]]
 name = "spacetimedb-data-structures"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f857c5f4ea6c3d13f9d78d3aaa36fd31d1879331fdd15d3f1de0ecbc4e6e1968"
+checksum = "4f61fac3c0d82a0558824abfd6bcb5dc5e6fac934e002cac55e2e224a94b59c5"
 dependencies = [
  "ahash",
  "hashbrown",
@@ -576,9 +587,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-lib"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69e1c1bac730f946c8ac07d9e71aee934eb1a82c02dcb6757a3763cdab808d1f"
+checksum = "4b4416b57d422452d1e06273b2ff5ceedb90020f74a06d88f39ce1c979b5be7e"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -597,9 +608,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-primitives"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f149b0933112064b4d3424bfae9b6dc694d4bc2e3ca80b6974a0628e81b61c70"
+checksum = "c5a3d9c671b8d54371dd40f146c82cc8ae7039533ce034cbcc7dd618dfe35fc7"
 dependencies = [
  "bitflags",
  "either",
@@ -609,9 +620,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-sats"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0e4739251061b529df194318f78c85482dff282d41175eeefe1a1f9c5ce556f"
+checksum = "b0dd6d73cae3213342a9144266e486e27a23b317b9601ca5cb4735f8407bcdd1"
 dependencies = [
  "anyhow",
  "arrayvec",
@@ -635,9 +646,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedsl"
-version = "0.5.1"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af7db6a07a6d5149b8e74c92b75190e2bf5c1f434986c565491185146d136055"
+checksum = "84eb58be3e5d55f8c661188668b3b1f3cefb6b881d0daa615493a99d39fbbce0"
 dependencies = [
  "itertools 0.14.0",
  "spacetimedb",
@@ -646,37 +657,48 @@ dependencies = [
 
 [[package]]
 name = "spacetimedsl_derive"
-version = "0.5.1"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c6a8c8e14d7536fd4575e37662dffbd153cbdc4e5e9ee466a398a073d090902"
+checksum = "01d83d3f4ed5d1db505d4e513288bda7ed5f36c7f80bd75fef2cedc14702d305"
 dependencies = [
  "ident_case",
- "prettyplease",
  "proc-macro2",
  "quote",
+ "rust-format",
  "spacetimedsl_derive-input",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
 name = "spacetimedsl_derive-input"
-version = "0.5.1"
+version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f0eca8e7dea4781ba713556e049163fb153b2a4047280a9071057a784a7f540"
+checksum = "4318845b6f12079f532e635d55d68bc3a71732e63f7496d5fc73e8cb27498ad8"
 dependencies = [
  "ident_case",
+ "itertools 0.14.0",
  "proc-macro2",
  "quote",
  "spacetime-bindings-macro-input",
  "spacetimedb",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
 name = "syn"
-version = "2.0.100"
+version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b09a44accad81e1ba1cd74a32461ba89dee89095ba17b32f5d03683b1b1fc2a0"
+checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
+dependencies = [
+ "proc-macro2",
+ "unicode-ident",
+]
+
+[[package]]
+name = "syn"
+version = "2.0.104"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17b6f705963418cdb9927482fa304bc562ece2fdd4f616084c50b7023b435a40"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -700,7 +722,7 @@ checksum = "4fee6c4efc90059e10f81e6d42c60a18f76588c3d74cb83a0b242a2b6c7504c1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -762,7 +784,7 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.104",
 ]
 
 [[package]]
@@ -773,5 +795,5 @@ checksum = "a996a8f63c5c4448cd959ac1bab0aaa3306ccfd060472f85943ee0750f0169be"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn",
+ "syn 2.0.104",
 ]

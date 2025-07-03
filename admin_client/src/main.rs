@@ -18,7 +18,7 @@ fn main() {
 }
 
 /// The URI of the SpacetimeDB instance hosting our chat database and module.
-const HOST: &str = "http://10.1.1.236:3000";
+const HOST: &str = "http://192.168.1.41:3000";
 // const HOST: &str = "https://maincloud.spacetimedb.com";
 
 /// The database name we chose when we published our module.
@@ -196,7 +196,7 @@ fn user_input_loop(ctx: &DbConnection) {
                                     if angle > std::f32::consts::TAU {
                                         angle -= std::f32::consts::TAU;
                                     }
-                                    std::thread::sleep(std::time::Duration::from_millis(10));
+                                    std::thread::sleep(std::time::Duration::from_millis(1000/60));
                                 }
                                 
                                 

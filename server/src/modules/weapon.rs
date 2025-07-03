@@ -7,7 +7,8 @@ use spacetimedsl::dsl;
 pub struct Weapon {
     #[primary_key]
     #[auto_inc]
-    pub model_id: u32, // Unique weapon model identifier
+    #[wrap]    
+    id: u64, // Unique weapon model identifier
     pub name: String, // Human-readable name
     pub description: String, // Description for UI
     pub damage: u16, // Base damage per shot
@@ -50,6 +51,22 @@ pub struct Weapon {
     created_at: Timestamp,
     modified_at: Timestamp,
 }
+
+
+//// Table for tracking which items (weapons, grenades, etc.) a player has access to.
+#[dsl(plural_name = player_items)]
+#[table(name = player_item, public, index(name = idx_player_item, btree(columns = [player_id, item_id])))]
+pub struct PlayerItem {
+    #[primary_key]
+    #[auto_inc]
+    #[wrap]    
+    id: u64, // Surrogate PK (auto-increment)
+    pub player_id: spacetimedb::Identity, // Player's unique identity
+    pub item_id: u32, // Item model id (weapon, grenade, etc.)
+    pub unlocked_at: Timestamp, // When the item was unlocked for the player
+    pub expires_at: Option<Timestamp>, // Optional: when the item expires (for rentals, timed unlocks)
+}
+
 
 impl Weapon {
     /// Returns true if the weapon is hitscan (projectile_speed == 0)
@@ -200,4 +217,5 @@ pub fn initialize_default_weapons(ctx: &spacetimedb::ReducerContext) {
         0,    // automatic
     );
 }
+
 

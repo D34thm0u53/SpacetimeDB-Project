@@ -6,7 +6,8 @@ use spacetimedsl::dsl;
 pub struct PlayerAudit {
     #[primary_key]
     #[auto_inc]
-    id: i64,
+    #[wrap]    
+    id: u64,
     pub user_identity: Identity,
     pub action: String,
     created_at: Timestamp,

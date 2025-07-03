@@ -11,7 +11,7 @@ pub struct GlobalChatMessage {
     #[primary_key]
     #[auto_inc]
     #[wrap]
-    pub id: u64,
+    id: u64,
 
     pub identity: Identity, // FK to Player
     pub username: String,
@@ -27,7 +27,8 @@ pub struct GlobalChatMessage {
 pub struct PrivateChatMessage {
     #[primary_key]
     #[auto_inc]
-    pub id: u64,
+    #[wrap]
+    id: u64,
     pub sender_identity: Identity, // FK to Player
     pub receiver_identity: Identity, // FK to Player
     pub message: String,
@@ -41,7 +42,8 @@ pub struct PrivateChatMessage {
 pub struct PlayerIgnorePair {
     #[primary_key]
     #[auto_inc]
-    pub id: u64,
+    #[wrap]
+    id: u64,
     pub ignorer_identity: Identity, // FK to Player
     pub ignored_identity: Identity, // FK to Player
     created_at: Timestamp,
@@ -53,7 +55,8 @@ pub struct PlayerIgnorePair {
 pub struct GlobalMuteList {
     #[primary_key]
     #[auto_inc]
-    pub id: u64,
+    #[wrap]
+    id: u64,
     #[unique]
     pub identity: Identity, // FK to Player
     reason: String,
@@ -69,7 +72,8 @@ pub struct GlobalMuteList {
 pub struct GlobalChatMessageArchive {
     #[primary_key]
     #[auto_inc]
-    pub id: u64,
+    #[wrap]
+    id: u64,
     pub identity: Identity,
     pub username: String,
     pub message: String,

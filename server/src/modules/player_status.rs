@@ -5,6 +5,8 @@ use spacetimedsl::dsl;
 #[table(name = player_status, public)]
 pub struct PlayerStatus {
     #[primary_key]
+    #[wrap]
+    id: u64,
     pub identity: Identity, // Link to player by identity
     pub base_health: u32,   // 0-1000, typically 500
     pub shield: u32,        // 0-1000, typically 500

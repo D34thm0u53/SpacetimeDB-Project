@@ -16,11 +16,11 @@
   - friend lists
   - friend management
 - Event & audit logging
-
-
-## Upcoming Work
 - Weapons table: store weapon stats (model id, damage, cone of fire, bloom, etc.)
 - User weapons table: track which weapons each user has unlocked (server-controlled)
+
+## Upcoming Work
+
 - Inventory/loadout system
 - damage system
 - Scoring & leaderboards

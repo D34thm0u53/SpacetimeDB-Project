@@ -10,7 +10,8 @@ use spacetimedsl::dsl;
 pub struct EventLog {
     #[primary_key]
     #[auto_inc]
-    pub id: u64,
+    #[wrap]
+    id: u64,
     pub user: Identity,
     pub description: String,
     
@@ -21,7 +22,8 @@ pub struct EventLog {
 pub struct AuditLog {
     #[primary_key]
     #[auto_inc]
-    pub id: u64,
+    #[wrap]
+    id: u64,
     pub user: Identity,
     pub description: String,
     created_at: Timestamp,

@@ -8,7 +8,8 @@ use spacetimedsl::dsl;
 #[spacetimedb::table(name = role, public)]
 pub struct Role {
     #[primary_key]
-    pub id: u64,
+    #[wrap]
+    id: u64,
     #[unique]
     pub user_identity: Identity,
     pub is_trusted_user: bool,
@@ -21,6 +22,7 @@ pub struct Role {
 pub struct RolesAudit {
     #[primary_key]
     #[auto_inc]
+    #[wrap]
     id: u64,
     identity: Identity,
     previous_role: RoleType,

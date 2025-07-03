@@ -11,6 +11,9 @@ use crate::modules::util::*;
 #[table(name = online_player, public)]
 pub struct OnlinePlayer {
     #[primary_key]
+    #[auto_inc]
+    #[wrap]    
+    id: u64, // Auto-incremented ID for the player record
     pub identity: Identity,
     #[unique]
     pub username: String,
@@ -23,6 +26,9 @@ pub struct OnlinePlayer {
 #[table(name = offline_player, public)]
 pub struct OfflinePlayer {
     #[primary_key]
+    #[auto_inc]
+    #[wrap]    
+    id: u64,
     pub identity: Identity,
     #[unique]
     pub username: String,

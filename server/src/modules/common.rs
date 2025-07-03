@@ -8,8 +8,9 @@ use super::player::*;
 #[table(name = owner_identity, private)]
 pub struct OwnerIdentity {
 #[primary_key]
-pub id: u16, // Fk to the player table
-pub owner_identity: Identity, // Fk to the player table
+#[wrap]
+id: u16, // Fk to the player table
+pub owner_ident: Identity, // Fk to the player table
 }
 
 pub fn try_server_only(ctx: &ReducerContext) -> Result<(), String> {
@@ -18,7 +19,7 @@ pub fn try_server_only(ctx: &ReducerContext) -> Result<(), String> {
         return Err("Owner identity not found".to_string());
     };
 
-    if ctx.sender == owner.owner_identity {
+    if ctx.sender == owner.owner_ident {
         return Ok(());
     }
     else {
