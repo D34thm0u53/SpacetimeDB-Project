@@ -10,8 +10,8 @@ use crate::modules::util::log_player_action_audit;
 pub struct GlobalChatMessage {
     #[primary_key]
     #[auto_inc]
-    #[wrap]
-    id: u64,
+    #[create_wrapper]
+    id: u32,
 
     pub identity: Identity, // FK to Player
     pub username: String,
@@ -27,8 +27,8 @@ pub struct GlobalChatMessage {
 pub struct PrivateChatMessage {
     #[primary_key]
     #[auto_inc]
-    #[wrap]
-    id: u64,
+    #[create_wrapper]
+    id: u32,
     pub sender_identity: Identity, // FK to Player
     pub receiver_identity: Identity, // FK to Player
     pub message: String,
@@ -42,8 +42,8 @@ pub struct PrivateChatMessage {
 pub struct PlayerIgnorePair {
     #[primary_key]
     #[auto_inc]
-    #[wrap]
-    id: u64,
+    #[create_wrapper]
+    id: u32,
     pub ignorer_identity: Identity, // FK to Player
     pub ignored_identity: Identity, // FK to Player
     created_at: Timestamp,
@@ -55,8 +55,8 @@ pub struct PlayerIgnorePair {
 pub struct GlobalMuteList {
     #[primary_key]
     #[auto_inc]
-    #[wrap]
-    id: u64,
+    #[create_wrapper]
+    id: u32,
     #[unique]
     pub identity: Identity, // FK to Player
     reason: String,
@@ -72,12 +72,12 @@ pub struct GlobalMuteList {
 pub struct GlobalChatMessageArchive {
     #[primary_key]
     #[auto_inc]
-    #[wrap]
-    id: u64,
+    #[create_wrapper]
+    id: u32,
     pub identity: Identity,
     pub username: String,
     pub message: String,
-    created_at: Timestamp, // Remove pub for inherited visibility
+    created_at: Timestamp,
 }
 
 
@@ -92,69 +92,78 @@ const PRIVATE_CHAT_MESSAGE_FILTER: Filter = Filter::Sql(
 );
 
 
-
 #[spacetimedb::reducer]
-pub fn ignore_target_player(ctx: &ReducerContext, username_to_block: String) -> Result<(), String> {
+pub fn ignore_player(ctx: &ReducerContext, target_identity: Identity) -> Result<(), String> {
     let dsl = dsl(ctx);
-    // Check if the target player is already ignored
-    if let Some(target_identity) = get_player_identity_by_username(ctx, &username_to_block) {
-        // Check if the ignore pair already exists
-        if dsl.get_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity).is_some() {
-            return Err("Player is already ignored.".to_string());
-        }
-        else {
-            match dsl.create_player_ignore_pair(ctx.sender, target_identity) {
-                        Ok(_) => {
-                            log::debug!("created ignore pair for {} and {}", ctx.sender, target_identity);
-                        }
-                        Err(_) => {
-                            log::warn!("Failed to create ignore pair for {} and {}", ctx.sender, target_identity);
-                            return Err("Failed to create ignore pair. Please try again.".to_string());
-                        }
-                    }
-        }
-    log_player_action_audit(ctx, &format!("ignore:{}", target_identity));
-    Ok(())
+
+    // Validate target identity
+    if ctx.sender == target_identity {
+        return Err("No matter how hard you try, you cannot ignore yourself".to_string());
     }
-    else {
-        Err("Target player not found.".to_string())
+
+    // Check if ignore relationship already exists
+    match dsl.get_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity) {
+        Ok(_existing_pair) => {
+            return Err("Player is already ignored".to_string());
+        }
+        Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
+            // No existing ignore relationship, proceed to create one
+            dsl.create_player_ignore_pair(ctx.sender, target_identity)
+                .map_err(|e| format!("Failed to create ignore relationship: {:?}", e))?;
+            
+            log::info!("Player {} ignored player {}", ctx.sender, target_identity);
+            Ok(())
+        }
+        Err(e) => {
+            Err(format!("Failed to lookup ignore pair: {:?}", e))
+        }
     }
-    
 }
 
+
+
 #[spacetimedb::reducer]
-pub fn unignore_target_player(ctx: &ReducerContext, username_to_block: String) -> Result<(), String> {
+pub fn unignore_player(ctx: &ReducerContext, target_identity: Identity) -> Result<(), String> {
     let dsl = dsl(ctx);
-    // Check if the target player is actually ignored
-    if let Some(target_identity) = get_player_identity_by_username(ctx, &username_to_block) {
-        // If the target player is not ignored, return an error
-        if let Some(ignore_pair_record) = dsl.get_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity) {
-            dsl.delete_player_ignore_pair_by_id(&ignore_pair_record.id);
-        }
-        else {
-            return Err("Player is not ignored.".to_string());
-        }
-        log_player_action_audit(ctx, &format!("unignore:{}", target_identity));
-        Ok(())
+
+    // Validate target identity
+    if ctx.sender == target_identity {
+        return Err("Cannot unignore yourself".to_string());
     }
-    else {
-        return Err("Target player not found.".to_string());
+
+    // Check if ignore relationship already exists
+    match dsl.get_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity) {
+        Ok(_existing_pair) => {
+            return Err("Player is already ignored".to_string());
+        }
+        Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
+            // No existing ignore relationship, proceed to create one
+
+            dsl.delete_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity)
+                .map_err(|e| format!("Failed to delete ignore relationship: {:?}", e))?;
+
+            log::info!("Player {} unignored player {}", ctx.sender, target_identity);
+            Ok(())
+        }
+        Err(e) => {
+            Err(format!("Failed to lookup ignore pair: {:?}", e))
+        }
     }
-    
 }
+
 
 //// Reducers ///
 #[spacetimedb::reducer]
 pub fn send_global_chat(ctx: &ReducerContext, chat_message: String) -> Result<(), String> {
     let dsl = dsl(ctx);
     // Check if the sender is muted globally
-    if dsl.get_global_mute_list_by_identity(&ctx.sender).is_some() {
-        return Err("You are globally muted and cannot send messages.".to_string());
-    }
-    else {
-        dsl.create_global_chat_message(ctx.sender, &get_username(ctx, ctx.sender), &chat_message)?;
+    // if dsl.get_global_mute_list_by_identity(&ctx.sender).is_some() {
+    //     return Err("You are globally muted and cannot send messages.".to_string());
+    // }
+    // else 
+        dsl.create_global_chat_message(ctx.sender, &get_username_by_identity(ctx, ctx.sender), &chat_message)?;
         Ok(())
-    }
+
 
 }
 

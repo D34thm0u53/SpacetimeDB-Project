@@ -29,11 +29,11 @@ fn database_init(ctx: &ReducerContext) {
     // Initialize the database
 
     // Create the player table if it doesn't exist
-    dsl.create_role(1, ctx.identity(), false, false, false)
-        .expect("Failed to create initial role");
+
+    // dsl.create_role(1, ctx.identity(), false, false, false) .expect("Failed to create initial role");
 
     // Initialize default weapons
-    crate::modules::weapon::initialize_default_weapons(ctx);
+    // crate::modules::weapon::initialize_default_weapons(ctx);
 }
 
 #[reducer(client_connected)]

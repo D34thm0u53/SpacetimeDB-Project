@@ -10,7 +10,7 @@ use super::common::*;
 pub struct Friendship {
     #[primary_key]
     #[auto_inc]
-    id: u64,
+    id: u32,
     pub party_one: Identity,
     pub party_two: Identity,
     pub status: FriendshipStatus,

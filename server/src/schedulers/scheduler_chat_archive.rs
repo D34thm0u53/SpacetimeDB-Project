@@ -11,9 +11,9 @@ use crate::modules::chat::*;
 pub struct ChatArchiveTimer {
     #[primary_key]
     #[auto_inc]
-    #[wrap]    
+    #[create_wrapper]    
     id: u64,
-    pub scheduled_id: u64,
+    pub scheduled_id: u32,
     scheduled_at: spacetimedb::ScheduleAt,
     current_update: u8,
 }
