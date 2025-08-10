@@ -1,7 +1,11 @@
 [package]
-name = "spacetime-module"
+name = "Mouse-Game"
+description = "The begining of an FPS running on SpaceTimeDB"
+homepage = ""
+repository = "https://github.com/D34thm0u53/SpacetimeDB-Project"
 version = "0.1.0"
 edition = "2021"
+authors = ["D34thM0u53"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,15 +13,7 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-spacetimedb = { version = "1.2.0", features = ["unstable"] }
+spacetimedb = { version="1.2.0", features = ["unstable"]}
 log = "0.4"
-serde = { version = "1.0.219", features = ["serde_derive"] }
-itertools = "=0.14.0"
-spacetimedsl_derive = "=0.7.3"
-spacetimedsl = "0.7.3"
-serde_json = "1.0.140"
-
-[dependencies.uuid] 
-version = "1.16.0"
-default-features = false
-features = [ "serde"] 
+glam = "0.30.2"
+spacetimedsl = "0.10.0"

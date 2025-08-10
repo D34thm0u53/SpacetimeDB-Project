@@ -3,6 +3,16 @@
 version = 4
 
 [[package]]
+name = "Mouse-Game"
+version = "0.1.0"
+dependencies = [
+ "glam",
+ "log",
+ "spacetimedb",
+ "spacetimedsl",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -230,6 +240,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "glam"
+version = "0.30.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2d1aab06663bdce00d6ca5e5ed586ec8d18033a771906c993a1e3755b368d85"
+
+[[package]]
 name = "hashbrown"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -287,12 +303,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "itoa"
-version = "1.0.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
-
-[[package]]
 name = "keccak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -312,12 +322,6 @@ name = "log"
 version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
-
-[[package]]
-name = "memchr"
-version = "2.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
 
 [[package]]
 name = "nohash-hasher"
@@ -428,12 +432,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ryu"
-version = "1.0.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
-
-[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -472,18 +470,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde_json"
-version = "1.0.140"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "20068b6e96dc6c9bd23e01df8827e6c7e1f2fddd43c21810382803c136b99373"
-dependencies = [
- "itoa",
- "memchr",
- "ryu",
- "serde",
-]
-
-[[package]]
 name = "sha3"
 version = "0.10.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -515,20 +501,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.104",
-]
-
-[[package]]
-name = "spacetime-module"
-version = "0.1.0"
-dependencies = [
- "itertools 0.14.0",
- "log",
- "serde",
- "serde_json",
- "spacetimedb",
- "spacetimedsl",
- "spacetimedsl_derive",
- "uuid",
 ]
 
 [[package]]
@@ -646,9 +618,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedsl"
-version = "0.7.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84eb58be3e5d55f8c661188668b3b1f3cefb6b881d0daa615493a99d39fbbce0"
+checksum = "cfe22c7cf7d9b05564c75b2d2be600c06fdadd1d54420fb86b51a7ddb300c31d"
 dependencies = [
  "itertools 0.14.0",
  "spacetimedb",
@@ -657,9 +629,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedsl_derive"
-version = "0.7.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01d83d3f4ed5d1db505d4e513288bda7ed5f36c7f80bd75fef2cedc14702d305"
+checksum = "f94ecb3098f3573c94441fb8f753e9cd16ebab3bebf40ba7e50082393cc7c4ab"
 dependencies = [
  "ident_case",
  "proc-macro2",
@@ -671,9 +643,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedsl_derive-input"
-version = "0.7.3"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4318845b6f12079f532e635d55d68bc3a71732e63f7496d5fc73e8cb27498ad8"
+checksum = "00ad020b94a74dedc98dc41dbbc270fcf1b56746474508b8bf6ffe41f1d9cb3d"
 dependencies = [
  "ident_case",
  "itertools 0.14.0",
@@ -681,6 +653,28 @@ dependencies = [
  "quote",
  "spacetime-bindings-macro-input",
  "spacetimedb",
+ "strum",
+ "syn 2.0.104",
+]
+
+[[package]]
+name = "strum"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+dependencies = [
+ "strum_macros",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.27.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+dependencies = [
+ "heck 0.5.0",
+ "proc-macro2",
+ "quote",
  "syn 2.0.104",
 ]
 
@@ -736,15 +730,6 @@ name = "unicode-ident"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a5f39404a5da50712a4c1eecf25e90dd62b613502b7e925fd4e4d19b5c96512"
-
-[[package]]
-name = "uuid"
-version = "1.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "458f7a779bf54acc9f347480ac654f68407d3aab21269a6e3c9f922acd9e2da9"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "version_check"
