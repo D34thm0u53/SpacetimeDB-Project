@@ -21,8 +21,8 @@ fn database_init(ctx: &ReducerContext) {
     create_owner_record(ctx)
         .expect("Failed to create owner record");
     
-    scheduler_chunks::init(ctx)
-        .expect("Failed to initialize chunk scheduler");
+    // scheduler_chunks::init(ctx)
+    //     .expect("Failed to initialize chunk scheduler");
 
     scheduler_chat_archive::init(ctx)
         .expect("Failed to initialize chat archive timer");
