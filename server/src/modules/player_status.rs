@@ -1,10 +1,13 @@
-use spacetimedb::{table, Identity, Timestamp};
+use spacetimedb::{table, Identity, Timestamp, ReducerContext};
 use spacetimedsl::dsl;
 
 #[dsl(plural_name = player_statuses)]
 #[table(name = player_status, public)]
 pub struct PlayerStatus {
     #[primary_key]
+    #[use_wrapper(path = crate::modules::entity::EntityId)]
+    id: u32,
+    #[unique]
     pub identity: Identity, // Link to player by identity
     pub base_health: u32,   // 0-1000, typically 500
     pub shield: u32,        // 0-1000, typically 500
@@ -19,4 +22,49 @@ impl PlayerStatus {
     pub fn total_health(&self) -> u32 {
         self.base_health + self.shield
     }
+}
+
+/// Applies damage from an attacker to a victim, updating shield and health accordingly.
+/// Damage is absorbed by shield first, then by base_health. If both reach zero, the player is considered dead.
+#[spacetimedb::reducer]
+pub fn apply_damage(ctx: &ReducerContext, victim: crate::modules::entity::EntityId, damage: u32) {
+    // Get DSL context
+    let dsl = dsl(ctx);
+
+    let mut status_record = match dsl.get_player_status_by_id(&victim) {
+        Ok(record) => record,
+        Err(_) => return,
+    };
+
+    // If already dead, do nothing
+    if status_record.base_health == 0 {
+        return;
+    }
+
+    let mut remaining_damage = damage;
+
+    // Apply to shield first
+    if status_record.shield >= remaining_damage {
+        status_record.shield -= remaining_damage;
+        remaining_damage = 0;
+    } else {
+        remaining_damage -= status_record.shield;
+        status_record.shield = 0;
+    }
+
+
+    // Apply any leftover damage to health
+    if remaining_damage > 0 {
+        if status_record.base_health >= remaining_damage {
+            status_record.base_health -= remaining_damage;
+        } else {
+            status_record.base_health = 0;
+        }
+    }
+
+    // Update the PlayerStatus row
+    if let Err(e) = dsl.update_player_status_by_id(status_record) {
+        log::error!("Failed to update player status: {:?}", e);
+    }
+
 }

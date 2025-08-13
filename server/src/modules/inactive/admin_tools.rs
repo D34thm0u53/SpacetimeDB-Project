@@ -41,7 +41,7 @@ pub fn cleanup_inactive_players(ctx: &ReducerContext) {
 
     // Iterate through online players and remove those who have been inactive for more than 30 days
     for player in online_players {
-        dsl.delete_entity_position_by_player_identity(&player.identity);
-        dsl.delete_entity_chunk_by_player_identity(&player.identity);
+        dsl.delete_entity_position_by_id(&player.identity);
+        dsl.delete_entity_chunk_by_id(&player.identity);
     }
 }

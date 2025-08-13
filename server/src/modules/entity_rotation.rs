@@ -1,6 +1,9 @@
-use spacetimedb::{table, Identity, ReducerContext};
+use log::info;
+use spacetimedb::{table, ReducerContext };
+use spacetimedsl::{ dsl };
 
-use spacetimedsl::dsl;
+
+use super::entity::*;
 
 /* 
 Tables
@@ -13,7 +16,9 @@ Tables
 #[table(name = entity_rotation, public)]
 pub struct EntityRotation {
     #[primary_key]
-    player_identity: Identity, // Fk to the player table
+    #[use_wrapper(path = crate::modules::entity::EntityId)]
+    #[foreign_key(path = crate::modules::entity, table = entity, column = id, on_delete = Delete)]
+    id: u32,
     pub rot_x: i16,
     pub rot_y: i16,
     pub rot_z: i16,
@@ -21,42 +26,55 @@ pub struct EntityRotation {
 
 /* 
 Recducers
-- update_my_rotation: Updates the rotation of the player in the entity_rotation table. This data is used in a scheduled task to update the player's chunk position in the entity_chunk table.
+- update_my_rotation: Updates the rotation of the player in the entity_rotation table.
+    # Performs a check to see if the rotation has changed.
+    # If it has not changed, it will still update the record to refresh the modified_at timestamp.
 
 */
 
 #[spacetimedb::reducer]
-pub fn update_my_rotation(ctx: &ReducerContext, new_rotation: EntityRotation) {
-    // The user has provided us with an update of their current position
+pub fn update_my_rotation(ctx: &ReducerContext, entity: Entity, new_rotation: EntityRotation) -> Result<(), String> {
     let dsl = dsl(ctx);
 
-    match dsl.get_entity_rotation_by_player_identity(&ctx.sender) {
-        Some(mut entity_rotation) => {
-            // If the position is the same, still update to refresh the modified_at timestamp
-            // This is useful for keeping the position updated without changing it
-            if (entity_rotation.rot_x == new_rotation.rot_x) && (entity_rotation.rot_y == new_rotation.rot_y) && (entity_rotation.rot_z == new_rotation.rot_z) {
-                dsl.update_entity_rotation_by_player_identity(entity_rotation)
-                    .expect("Failed to update entity rotation");
-                return;
+    // Verify the entity exists
+    match dsl.get_entity_by_id(entity.get_id()) {
+        Ok(_) => {
+            // Entity exists, proceed with rotation update
+            match dsl.get_entity_rotation_by_id(entity.get_id()) {
+                Ok(current_rotation) => {
+                    // Check if rotation has actually changed to avoid unnecessary updates
+                    if current_rotation.rot_x == new_rotation.rot_x 
+                        && current_rotation.rot_y == new_rotation.rot_y 
+                        && current_rotation.rot_z == new_rotation.rot_z {
+                        return Ok(());
+                    }
+
+                    // Update the existing rotation
+                    let updated_rotation = EntityRotation {
+                        rot_x: new_rotation.rot_x,
+                        rot_y: new_rotation.rot_y,
+                        rot_z: new_rotation.rot_z,
+                        ..current_rotation // Preserve other fields like ID
+                    };
+
+                    dsl.update_entity_rotation_by_id(updated_rotation)
+                        .map_err(|e| format!("Failed to update entity rotation: {:?}", e))?;
+                }
+                Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
+                    // Entity exists but has no rotation record - create one
+                    dsl.create_entity_rotation(entity.get_id(), new_rotation.rot_x, new_rotation.rot_y, new_rotation.rot_z)
+                        .map_err(|e| format!("Failed to create entity rotation: {:?}", e))?;
+                }
+                Err(e) => {
+                    return Err(format!("Failed to retrieve entity rotation: {:?}", e));
+                }
             }
-            else {
-                entity_rotation.rot_x = new_rotation.rot_x;
-                entity_rotation.rot_y = new_rotation.rot_y;
-                entity_rotation.rot_z = new_rotation.rot_z;
-
-                dsl.update_entity_rotation_by_player_identity(entity_rotation)
-                    .expect("Failed to update entity rotation");
-            }
-
-        },
-        None => {
-            dsl.create_entity_rotation(
-                ctx.sender,
-                new_rotation.rot_x,
-                new_rotation.rot_y,
-                new_rotation.rot_z,
-
-            ).expect("Failed to create entity rotation");
-        },
+        }
+        Err(_) => {
+            info!("Entity not found for rotation update: {:?}", entity.get_id());
+            return Err("Entity not found".to_string());
+        }
     }
+
+    Ok(())
 }

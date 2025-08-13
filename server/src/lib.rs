@@ -21,17 +21,19 @@ fn database_init(ctx: &ReducerContext) {
     create_owner_record(ctx)
         .expect("Failed to create owner record");
     
-    scheduler_chunks::init(ctx)
-        .expect("Failed to initialize chunk scheduler");
+    // scheduler_chunks::init(ctx)
+    //     .expect("Failed to initialize chunk scheduler");
 
     scheduler_chat_archive::init(ctx)
         .expect("Failed to initialize chat archive timer");
     // Initialize the database
 
     // Create the player table if it doesn't exist
-    dsl.create_role(1, ctx.identity(), false, false, false)
-        .expect("Failed to create initial role");
 
+    // dsl.create_role(1, ctx.identity(), false, false, false) .expect("Failed to create initial role");
+
+    // Initialize default weapons
+    // crate::modules::weapon::initialize_default_weapons(ctx);
 }
 
 #[reducer(client_connected)]

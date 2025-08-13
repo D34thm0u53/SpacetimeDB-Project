@@ -1,0 +1,483 @@
+openapi: 3.0.3
+info:
+  title: SpacetimeDB Game Server API
+  description: |
+    SpacetimeDB reducer endpoints for a multiplayer game server with player management, 
+    entity positioning, chat system, and administrative tools.
+    
+    This API represents the available reducer functions that clients can call to interact 
+    with the SpacetimeDB instance. Each reducer function is atomic and transactional.
+  version: 1.0.0
+  contact:
+    name: SpacetimeDB Game Server
+  license:
+    name: MIT
+    
+servers:
+  - url: ws://localhost:3000
+    description: Local SpacetimeDB instance (WebSocket)
+  - url: http://localhost:3000
+    description: Local SpacetimeDB instance (HTTP)
+
+paths:
+  /reducer/update_my_position:
+    post:
+      summary: Update Entity Position
+      description: |
+        Updates the position of a player's entity in the game world. 
+        Performs validation to ensure the entity exists and only updates if position has changed.
+      operationId: updateMyPosition
+      tags:
+        - Entity Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - entity
+                - new_position
+              properties:
+                entity:
+                  $ref: '#/components/schemas/Entity'
+                new_position:
+                  $ref: '#/components/schemas/EntityPosition'
+      responses:
+        '200':
+          description: Position updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid request or entity not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reducer/update_my_rotation:
+    post:
+      summary: Update Entity Rotation
+      description: |
+        Updates the rotation of a player's entity in the game world.
+        Performs validation to ensure the entity exists and only updates if rotation has changed.
+      operationId: updateMyRotation
+      tags:
+        - Entity Management
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - entity
+                - new_rotation
+              properties:
+                entity:
+                  $ref: '#/components/schemas/Entity'
+                new_rotation:
+                  $ref: '#/components/schemas/EntityRotation'
+      responses:
+        '200':
+          description: Rotation updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid request or entity not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reducer/send_global_chat:
+    post:
+      summary: Send Global Chat Message
+      description: |
+        Sends a message to the global chat channel. The message is visible to all connected players
+        unless they have muted the sender.
+      operationId: sendGlobalChat
+      tags:
+        - Chat System
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - chat_message
+              properties:
+                chat_message:
+                  type: string
+                  description: The message content to send
+                  maxLength: 500
+                  example: "Hello everyone!"
+      responses:
+        '200':
+          description: Message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid message or user is muted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reducer/send_private_chat:
+    post:
+      summary: Send Private Message
+      description: |
+        Sends a private message to a specific player by username. 
+        The message is saved regardless of ignore status for audit purposes.
+      operationId: sendPrivateChat
+      tags:
+        - Chat System
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_username
+                - message
+              properties:
+                target_username:
+                  type: string
+                  description: Username of the recipient
+                  example: "PlayerOne"
+                message:
+                  type: string
+                  description: The private message content
+                  maxLength: 500
+                  example: "Hey, want to team up?"
+      responses:
+        '200':
+          description: Private message sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Target player not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reducer/ignore_player:
+    post:
+      summary: Ignore Player
+      description: |
+        Adds a player to the caller's ignore list. Messages from ignored players 
+        will not be visible to the caller.
+      operationId: ignorePlayer
+      tags:
+        - Chat System
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_identity
+              properties:
+                target_identity:
+                  $ref: '#/components/schemas/Identity'
+      responses:
+        '200':
+          description: Player ignored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Cannot ignore yourself or player already ignored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reducer/unignore_player:
+    post:
+      summary: Unignore Player  
+      description: |
+        Removes a player from the caller's ignore list, allowing their messages
+        to be visible again.
+      operationId: unignorePlayer
+      tags:
+        - Chat System
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_identity
+              properties:
+                target_identity:
+                  $ref: '#/components/schemas/Identity'
+      responses:
+        '200':
+          description: Player unignored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Cannot unignore yourself or player not currently ignored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reducer/apply_damage:
+    post:
+      summary: Apply Damage to Player
+      description: |
+        Applies damage to a player's health and shield. Damage is absorbed by shield first,
+        then by base health. If both reach zero, the player is considered dead.
+      operationId: applyDamage
+      tags:
+        - Player Combat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - victim
+                - damage
+              properties:
+                victim:
+                  $ref: '#/components/schemas/EntityId'
+                damage:
+                  type: integer
+                  format: int32
+                  minimum: 0
+                  maximum: 2000
+                  description: Amount of damage to apply
+                  example: 150
+      responses:
+        '200':
+          description: Damage applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          description: Invalid victim or damage amount
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reducer/set_player_roles:
+    post:
+      summary: Set Player Roles
+      description: |
+        Allows game admins and server admins to modify another player's role permissions.
+        Requires admin authorization to execute.
+      operationId: setPlayerRoles
+      tags:
+        - Administration
+      security:
+        - AdminAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - target_identity
+                - requested_role
+              properties:
+                target_identity:
+                  $ref: '#/components/schemas/Identity'
+                requested_role:
+                  $ref: '#/components/schemas/RoleType'
+      responses:
+        '200':
+          description: Player roles updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '401':
+          description: Unauthorized - caller lacks admin privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid target player or role type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Identity:
+      type: string
+      format: hex
+      pattern: '^[0-9a-fA-F]{64}$'
+      description: SpacetimeDB Identity as 64-character hexadecimal string
+      example: "a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456"
+
+    EntityId:
+      type: integer
+      format: int32
+      minimum: 1
+      description: Unique identifier for game entities
+      example: 12345
+
+    Entity:
+      type: object
+      required:
+        - id
+        - entity_type
+      properties:
+        id:
+          $ref: '#/components/schemas/EntityId'
+        entity_type:
+          $ref: '#/components/schemas/EntityType'
+
+    EntityType:
+      type: string
+      enum:
+        - Player
+        - NonPlayer
+        - World
+      description: Type classification for game entities
+
+    EntityPosition:
+      type: object
+      required:
+        - id
+        - x
+        - y
+        - z
+      properties:
+        id:
+          $ref: '#/components/schemas/EntityId'
+        x:
+          type: integer
+          format: int32
+          description: X coordinate in game world
+          example: 1024
+        y:
+          type: integer
+          format: int32
+          description: Y coordinate in game world
+          example: 512
+        z:
+          type: integer
+          format: int32
+          description: Z coordinate in game world
+          example: 256
+
+    EntityRotation:
+      type: object
+      required:
+        - id
+        - rot_x
+        - rot_y
+        - rot_z
+      properties:
+        id:
+          $ref: '#/components/schemas/EntityId'
+        rot_x:
+          type: integer
+          format: int16
+          minimum: -32768
+          maximum: 32767
+          description: X rotation component
+          example: 45
+        rot_y:
+          type: integer
+          format: int16
+          minimum: -32768
+          maximum: 32767
+          description: Y rotation component
+          example: 90
+        rot_z:
+          type: integer
+          format: int16
+          minimum: -32768
+          maximum: 32767
+          description: Z rotation component
+          example: 0
+
+    RoleType:
+      type: string
+      enum:
+        - User
+        - TrustedUser
+        - GameAdmin
+        - ServerAdmin
+      description: |
+        Player role types with increasing privilege levels:
+        - User: Basic player permissions
+        - TrustedUser: Enhanced player permissions  
+        - GameAdmin: Can moderate players and game content
+        - ServerAdmin: Full administrative access
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+          example: "Invalid input parameters"
+        code:
+          type: string
+          description: Error code for programmatic handling
+          example: "INVALID_ENTITY"
+
+  securitySchemes:
+    AdminAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: SpacetimeDB_Identity
+      description: |
+        Admin authentication requires the caller's SpacetimeDB identity to have
+        GameAdmin or ServerAdmin role permissions.
+
+tags:
+  - name: Entity Management
+    description: Operations for managing game entity positions and rotations
+  - name: Chat System
+    description: Global and private messaging functionality
+  - name: Player Combat
+    description: Combat-related mechanics like damage application
+  - name: Administration
+    description: Administrative tools for managing players and permissions
+
+externalDocs:
+  description: SpacetimeDB Documentation
+  url: https://spacetimedb.com/docs

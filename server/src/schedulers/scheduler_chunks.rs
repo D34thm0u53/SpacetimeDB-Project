@@ -18,8 +18,10 @@ Tables
 pub struct GlobalConfiguration {
     #[primary_key]
     #[auto_inc]
-    pub scheduled_id: u64,
-    pub current_update: u64,
+    #[wrap]    
+    id: u32,
+    pub scheduled_id: u32,
+    pub current_update: u32,
 }
 
 #[dsl(plural_name = chunk_check_timers)]
@@ -27,7 +29,9 @@ pub struct GlobalConfiguration {
 pub struct ChunkCheckTimer {
     #[primary_key]
     #[auto_inc]
-    pub scheduled_id: u64,
+    #[wrap]    
+    id: u32,
+    pub scheduled_id: u32,
     scheduled_at: spacetimedb::ScheduleAt,
     current_update: u8,
 }
