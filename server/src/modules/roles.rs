@@ -4,6 +4,7 @@ use spacetimedb::SpacetimeType;
 use spacetimedsl::{dsl, Wrapper};
 
 use crate::modules::player::*;
+use crate::modules::common::*;
 
 // Store User Roles
 #[dsl(plural_name = roles)]
@@ -44,16 +45,15 @@ pub enum RoleType {
 
 // Admin Tools
 
-
-
 #[reducer]
 /// Allows game admins and server admins to set another player's roles.
 pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, requested_role: RoleType) -> Result<(), String> {
-    // Authorization check: Ensure the caller is a game admin or server admin
-    if !is_admin_tools_authorized(ctx) {
+    if !try_server_or_dev(ctx) {
         log::warn!("Unauthorized attempt to set roles by {:?}", ctx.sender);
         return Err("Unauthorized access".to_string());
     }
+    
+    
 
 
     

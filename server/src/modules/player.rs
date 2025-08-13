@@ -1,7 +1,7 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
 
 use spacetimedsl::{ dsl, Wrapper };
-
+use log::*;
 use crate::modules::util::*;
 
 // player_account table is a persistent storage for player data.
@@ -61,45 +61,54 @@ pub struct OfflinePlayer {
 
 //// Reducers ///
  
-/*
+
 #[spacetimedb::reducer]
 pub fn set_username(ctx: &ReducerContext, username: String) {
-let dsl = dsl(ctx);
+    let dsl = dsl(ctx);
     // Check if the username is valid
     match validate_name(username.clone()) {
         Ok(valid_username) => {
             // Check if the username already exists in the database
-            if dsl.get_player_account_by_username(&valid_username).is_some() {
+            if dsl.get_player_account_by_username(&valid_username).is_ok() {
                 log::warn!("Username [{}] already exists", valid_username);
                 return;
             }
-            // Update the player's username in the database
+            // Find or create the player's account by identity
+            let mut player = match dsl.get_player_account_by_identity(&ctx.sender) {
+                Ok(acc) => acc,
+                Err(_) => {
+                    match create_player_account_and_online(ctx, ctx.sender, valid_username.clone()) {
+                        Ok((acc, _online)) => acc,
+                        Err(e) => {
+                            log::error!("Failed to create PlayerAccount: {}", e);
+                            return;
+                        }
+                    }
+                }
+            };
 
-            let mut player = dsl
-                .get_player_account_by_username(&ctx.sender)
-                .unwrap_or_else(|| create_player(ctx)); 
-
-            player.username = valid_username.clone();
+            // Update username using generated setter
+            player.set_username(&valid_username);
 
             log_player_action_audit(
                 ctx,
                 &format!(
                     "Player [{}] (Identity: [{}]) set username to [{}]",
-                    &player.username, &player.identity, &valid_username
+                    player.get_id(),
+                    player.get_identity(),
+                    valid_username
                 ),
             );
 
-            dsl.update_online_player_by_identity(player).expect("Failed to update player record");
-            
+            // Persist the change to the PlayerAccount
+            dsl.update_player_account_by_identity(player).expect("Failed to update player record");
         },
         Err(err) => {
             log::warn!("Invalid username: {}", err);
         }
     }
-
-
 }
-*/
+
 
 
 
@@ -124,10 +133,42 @@ pub fn get_username_by_identity(ctx: &ReducerContext, identity: Identity) -> Str
     }
 }
 
+
+// Returns the Identity for a given username, or empty string if not found.
+pub fn get_identity_by_username(ctx: &ReducerContext, username: String) -> Identity {
+    let dsl = dsl(ctx);
+    match dsl.get_player_account_by_username(&username) {
+        Ok(account) => account.identity,
+        Err(_) => Identity::default(),
+    }
+}
+
+
 pub fn handle_player_connection_event(ctx: &ReducerContext, event: u8 ) {
+    log::info!("Handling event [{}] for player: [{}]", event, ctx.sender);
     match event {
         1 => { // Logon event
-            move_player_to_online(ctx)
+            log::info!("Player [{}] logged in", ctx.sender);
+            
+            if !does_player_account_exist(ctx) {
+                // Create a new player account if it doesn't exist
+                let default_username: String = ctx.sender.to_string().chars().take(28).collect();
+                match create_player_account_and_online(ctx, ctx.sender, default_username) {
+                    Ok((player_account, online_player)) => {
+                        log::info!("Created new PlayerAccount: {:?}", player_account);
+                        log::info!("Created new OnlinePlayer: {:?}", online_player);
+                    },
+                    Err(e) => {
+                        log::error!("Failed to create player account: {}", e);
+                        return;
+                    }
+                }
+            } else {
+                log::info!("Player account already exists for identity [{}]", ctx.sender);
+                move_player_to_online(ctx)
+            }
+            log::info!("Player [{}] moved to online.", ctx.sender);
+            
         },
         2 => { // Logoff event
             move_player_to_offline(ctx)
@@ -140,11 +181,17 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, event: u8 ) {
 }
 
 
+pub fn does_player_account_exist(ctx: &ReducerContext) -> bool {
+    let dsl = dsl(ctx);
+    dsl.get_player_account_by_identity(&ctx.sender).is_ok()
+}
+
 //// private Fns ///
+
 
 /// Creates a new PlayerAccount and OnlinePlayer record for the given identity and username.
 /// Returns Result<(PlayerAccount, OnlinePlayer), String> on success, or error message.
-fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity, username: String) -> Result<(PlayerAccount, OnlinePlayer), String> {
+pub fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity, username: String) -> Result<(PlayerAccount, OnlinePlayer), String> {
     let dsl = dsl(ctx);
 
     // Validate username
@@ -157,11 +204,12 @@ fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity, us
     if dsl.get_player_account_by_username(&username).is_ok() {
         return Err("Username already taken".to_string());
     }
-
+    log::info!("Creating PlayerAccount for identity [{}] with username [{}]", identity, username);
     // Create PlayerAccount
     let player_account = dsl.create_player_account(identity.clone(), &username)
         .map_err(|e| format!("Failed to create PlayerAccount: {:?}", e))?;
 
+    log::info!("Created PlayerAccount: {:?}", player_account);
     // Create OnlinePlayer record
     let online_player = dsl.create_online_player(player_account.get_id(), player_account.identity)
         .map_err(|e| format!("Failed to create OnlinePlayer: {:?}", e))?;

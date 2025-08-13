@@ -1,6 +1,7 @@
 use spacetimedb::ReducerContext;
 use spacetimedb::{reducer};
 use spacetimedsl::dsl;
+use log::*;
 
 
 pub mod modules;
@@ -39,6 +40,7 @@ fn database_init(ctx: &ReducerContext) {
 #[reducer(client_connected)]
 // Called when a client connects to a SpacetimeDB database server
 fn client_connected(ctx: &ReducerContext) {
+    log::info!("Client connected: {}", ctx.sender);
     handle_player_connection_event(ctx, 1);
 }
 
