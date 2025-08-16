@@ -18,7 +18,7 @@ Tables:
 #[table(name = entity_position, public)]
 pub struct EntityPosition {
     #[primary_key]
-    #[use_wrapper(path = crate::modules::entity::EntityId)]
+    #[use_wrapper(path = crate::modules::player::PlayerAccountId)]
     #[foreign_key(path = crate::modules::entity, table = entity, column = id, on_delete = Delete)]
     id: u32,
     pub x: i32,

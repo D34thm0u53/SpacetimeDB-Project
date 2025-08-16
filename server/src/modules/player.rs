@@ -3,6 +3,7 @@ use spacetimedb::{table, Identity, ReducerContext, Timestamp};
 use spacetimedsl::{ dsl, Wrapper };
 use log::*;
 use crate::modules::util::*;
+use crate::modules::entity::*;
 
 // player_account table is a persistent storage for player data.
 
@@ -15,6 +16,7 @@ pub struct PlayerAccount {
     #[referenced_by(path = crate, table = online_player)]
     #[referenced_by(path = crate, table = offline_player)]
     #[referenced_by(path = crate::modules::roles, table = role)]
+    #[referenced_by(path = crate::modules::entity, table = entity)]
     id: u32, // Auto-incremented ID for the player record
     #[unique]
     pub identity: Identity,
@@ -60,7 +62,8 @@ pub struct OfflinePlayer {
 
 
 //// Reducers ///
- 
+
+
 
 #[spacetimedb::reducer]
 pub fn set_username(ctx: &ReducerContext, username: String) {
@@ -214,6 +217,9 @@ pub fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity
     let online_player = dsl.create_online_player(player_account.get_id(), player_account.identity)
         .map_err(|e| format!("Failed to create OnlinePlayer: {:?}", e))?;
 
+    // Created records in related tables
+    create_entity_tree(ctx, EntityType::Player);
+
     Ok((player_account, online_player))
 }
 
@@ -270,7 +276,7 @@ fn move_player_to_online(ctx: &ReducerContext) {
 
         log_player_action_audit(
                 ctx,
-                &format!("Player [{}] (Identity: [{}]) logged in", player_record.id, player_record.identity)
+                &format!("Player [{}] (Identity: [{}]) logged in", player_record.get_id(), player_record.identity)
                 );
     }
 }

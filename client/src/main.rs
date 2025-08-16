@@ -24,8 +24,10 @@ fn main() {
     // Wait a moment for connection to stabilize
     thread::sleep(Duration::from_secs(2));
 
+
+    general_callbacks(&ctx);
     // Run automated tests for all reducers
-     run_reducer_tests(&ctx);
+    run_reducer_tests(&ctx);
 
     // Handle CLI input for manual testing
     println!("\n📝 Entering interactive mode. Type 'help' for commands:");
@@ -99,7 +101,139 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
     }
 }
 
+fn general_callbacks(ctx: &DbConnection) {
 
+    let _mock_data_callback_id = ctx.reducers().on_build_mock_data(|ctx, mock_identity, mock_username| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Mock player_account created: Identity: {:?}, Username: {}", mock_identity, mock_username);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to ignore player: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to ignore player");
+            }
+        }
+    });
+
+    let _apply_damage_callback_id = ctx.reducers().on_apply_damage(|ctx, victim, damage| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Applied {} damage to entity {:?}", damage, victim);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to apply damage: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to apply damage");
+            }
+        }
+    });
+
+    let _set_player_roles_callback_id = ctx.reducers().on_set_player_roles(|ctx, target_identity, requested_role| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Set player role to {:?} for {:?}", requested_role, target_identity);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to set player roles (expected): {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to set player roles");
+            }
+        }
+    });
+
+    let _update_rotation_callback_id = ctx.reducers().on_update_my_rotation(|ctx, entity, new_rotation| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Rotation updated to ({}, {}, {})", 
+                         new_rotation.rot_x, new_rotation.rot_y, new_rotation.rot_z);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to update rotation: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to update rotation");
+            }
+        }
+    });
+
+    let _update_position_callback_id = ctx.reducers().on_update_my_position(|ctx, entity, new_position| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Position updated to ({}, {}, {})", 
+                         new_position.x, new_position.y, new_position.z);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to update position: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to update position");
+            }
+        }
+    });
+
+    let _ignore_player_callback_id = ctx.reducers().on_ignore_player(|ctx, target_identity| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Player ignored: {:?}", target_identity);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to ignore player: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to ignore player");
+            }
+        }
+    });
+    
+
+    let _unignore_player_callback_id = ctx.reducers().on_unignore_player(|ctx, target_identity| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Player unignored: {:?}", target_identity);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to unignore player: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to unignore player");
+            }
+        }
+    });
+
+    let _send_private_chat_callback_id = ctx.reducers().on_send_private_chat(|ctx, target_username, message| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Private message sent to '{}': '{}'", target_username, message);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to send private message: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to send private message");
+            }
+        }
+    });
+
+    let _send_global_chat_callback_id = ctx.reducers().on_send_global_chat(|ctx, chat_message| {
+        match &ctx.event.status {
+            spacetimedb_sdk::Status::Committed => {
+                println!("✅ Global chat message sent successfully: '{}'", chat_message);
+            }
+            spacetimedb_sdk::Status::Failed(err) => {
+                println!("❌ Failed to send global chat: {}", err);
+            }
+            spacetimedb_sdk::Status::OutOfEnergy => {
+                println!("⚡ Out of energy to send global chat message");
+            }
+        }
+    });
+
+
+}
 
 
 fn subscribe_to_tables(ctx: &DbConnection) {
@@ -119,6 +253,10 @@ fn subscribe_to_tables(ctx: &DbConnection) {
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
         .subscribe(["SELECT * FROM entity_position"]);
+    ctx.subscription_builder()
+        .on_applied(on_sub_applied)
+        .on_error(on_sub_error)
+        .subscribe(["SELECT * FROM player_account"]);
 
 }
 
@@ -164,21 +302,17 @@ fn on_msg_inserted(ctx: &EventContext, msg: &GlobalChatMessage) {
 /// Comprehensive test suite for all reducers based on API specification
 fn run_reducer_tests(ctx: &DbConnection) {
     println!("🧪 Starting Comprehensive Reducer Tests...\n");
-    
-
-
-
-
-
+    println!("=================================================");
     test_chat_system(ctx);
-    println!("");
+    println!("=================================================");
+    test_ignore_system(ctx);
+    println!("=================================================");
     test_entity_system(ctx);
-    println!("");
+    println!("=================================================");
     test_combat_system(ctx);
-    println!("");
+    println!("=================================================");
     test_admin_system(ctx);
-    println!("");
-    
+    println!("=================================================");
     println!("✅ All reducer tests completed!\n");
 }
 
@@ -234,27 +368,6 @@ fn get_mock_identity(ctx: &DbConnection) -> Option<Identity> {
     
 }
 
-
-/// Test Chat System Reducers
-fn test_chat_system(ctx: &DbConnection) {
-    println!("💬 Testing Chat System Reducers...");
-    let (mock_identity, mock_username) = create_mock_data(ctx, "TestPlayer".to_string());
-
-    // Test send_global_chat
-    test_send_global_chat(ctx, "Hello from test client! 🚀");
-    thread::sleep(Duration::from_millis(500));
-    
-    // Test send_private_chat (assuming at least one other player exists)
-    test_send_private_chat(ctx, &mock_username, "This is a private test message");
-    thread::sleep(Duration::from_millis(500));
-    
-    // Test ignore/unignore player functionality
-    test_ignore_system(ctx);
-    
-    println!("✅ Chat system tests completed\n");
-}
-
-
 fn create_mock_data(ctx: &DbConnection, username: String)-> (Identity, String) {
     println!(" 🏗️ Generating a Mock Identity");
     // Create a dummy identity for testing (in a real scenario, this would be another player's identity)
@@ -262,69 +375,119 @@ fn create_mock_data(ctx: &DbConnection, username: String)-> (Identity, String) {
     println!("");
 
     println!(" 🏗️ Generating a Mock User");
-
-    let _callback_id = ctx.reducers().on_build_mock_data(|ctx, mock_identity, mock_username| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Mock player_account created: Identity: {:?}, Username: {}", mock_identity, mock_username);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to ignore player: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to ignore player");
-            }
-        }
-    });
     ctx.reducers().build_mock_data(mock_identity, username.to_string()).expect("Failed to get mock identity");
-
     thread::sleep(Duration::from_millis(500));
+    println!("");
+    
     return (mock_identity, username.to_string());
+}
+
+/// Test Chat System Reducers
+fn test_chat_system(ctx: &DbConnection) {
+    println!(">> 💬 Testing Chat System Reducers...");
+    
+    println!("");
+    let (mock_identity, mock_username) = create_mock_data(ctx, "TestPlayer".to_string());
+
+    // Test send_global_chat
+    test_send_global_chat(ctx, &format!("Test message from client! 🚀"));
+    thread::sleep(Duration::from_millis(500));
+    
+    // Test send_private_chat (assuming at least one other player exists)
+    test_send_private_chat(ctx, &mock_username, "This is a private test message");
+    thread::sleep(Duration::from_millis(500));
+
+    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
+    println!("<<   Chat system tests completed\n");
+}
+
+fn test_ignore_system(ctx: &DbConnection) {
+    println!(">> 🚫 Testing Player ignore functions...\n");
+    
+
+    let (mock_identity, mock_username) = create_mock_data(ctx, "TestPlayer".to_string());
+
+    println!("");
+    println!("  Testing ignore_player");
+
+    
+    let _ = ctx.reducers().ignore_player(mock_identity);
+    thread::sleep(Duration::from_millis(500));
+    
+    
+    println!("");
+    println!("  Testing unignore_player...");
+    
+
+    let _ = ctx.reducers().unignore_player(mock_identity);
+    thread::sleep(Duration::from_millis(500));
+    println!("");
+
+    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
+    println!("<<   Player ignore tests completed\n");
 }
 
 /// Test Entity System Reducers  
 fn test_entity_system(ctx: &DbConnection) {
-    println!("🎯 Testing Entity System Reducers...");
+    println!(">> 🎯 Testing Entity System Reducers...");
+    println!("");
+    let (mock_identity, mock_username) = create_mock_data(ctx, "PositionUpdate_Test".to_string());
     
+    // Get player_account record for mock_identity
+    let player_account = ctx.db.player_account()
+        .identity()
+        .find(&mock_identity)
+        .expect("Mock player account should exist");
+    
+    let entity = Entity {
+        id: player_account.id,
+        entity_type: EntityType::Player,
+    };
+
     // Test update_my_position
-    test_update_position(ctx, 1024, 512, 256);
+    test_update_position(ctx, 1024, 512, 256, entity.clone());
     thread::sleep(Duration::from_millis(500));
-    
+    println!("");
     // Test update_my_rotation
-    test_update_rotation(ctx, 45, 90, 0);
+    test_update_rotation(ctx, 45, 90, 0, entity.clone());
     thread::sleep(Duration::from_millis(500));
-    
+    println!("");
     // Test multiple position updates
-    test_update_position(ctx, 2048, 1024, 512);
+    test_update_position(ctx, 2048, 1024, 512, entity.clone());
     thread::sleep(Duration::from_millis(500));
+    println!("");
     
-    println!("✅ Entity system tests completed\n");
+
+    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
+    println!("<<   Entity system tests completed\n");
 }
 
 /// Test Combat System Reducers
 fn test_combat_system(ctx: &DbConnection) {
-    println!("⚔️ Testing Combat System Reducers...");
+    println!(">> ⚔️ Testing Combat System Reducers...");
+    println!("");
     
     // Test apply_damage (using a test entity ID)
     test_apply_damage(ctx, 1, 150);
     thread::sleep(Duration::from_millis(500));
-    
+    println!("");
     // Test different damage amounts
     test_apply_damage(ctx, 1, 75);
     thread::sleep(Duration::from_millis(500));
-    
-    println!("✅ Combat system tests completed\n");
+    println!("");
+    println!("<<   Combat system tests completed\n");
 }
 
 /// Test Administration System Reducers
 fn test_admin_system(ctx: &DbConnection) {
-    println!("🛡️ Testing Administration System Reducers...");
+    println!(">> 🛡️ Testing Administration System Reducers...");
+    println!("");
     
     // Test set_player_roles (this will likely fail due to permissions)
     test_set_player_roles(ctx);
     thread::sleep(Duration::from_millis(500));
-    
-    println!("✅ Admin system tests completed\n");
+    println!("");
+    println!("<<   Admin system tests completed\n");
 }
 
 /// Test individual reducers with proper parameters
@@ -333,176 +496,56 @@ fn test_send_global_chat(ctx: &DbConnection, message: &str) {
     println!("📢 Testing send_global_chat with message: '{}'", message);
     
     ctx.reducers().send_global_chat(message.to_string());
-    
+    thread::sleep(Duration::from_millis(100));
+    println!("");
     // Register callback to see the result
-    let _callback_id = ctx.reducers().on_send_global_chat(|ctx, chat_message| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Global chat message sent successfully: '{}'", chat_message);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to send global chat: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to send global chat message");
-            }
-        }
-    });
+    
 }
 
 fn test_send_private_chat(ctx: &DbConnection, target_username: &str, message: &str) {
     println!("💌 Testing send_private_chat to '{}': '{}'", target_username, message);
     
     ctx.reducers().send_private_chat(target_username.to_string(), message.to_string());
-    
-    let _callback_id = ctx.reducers().on_send_private_chat(|ctx, target_username, message| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Private message sent to '{}': '{}'", target_username, message);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to send private message: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to send private message");
-            }
-        }
-    });
+    thread::sleep(Duration::from_millis(500));
+    println!("");
 }
 
-fn test_ignore_system(ctx: &DbConnection) {
-    println!("🚫 Testing Player ignore functions...\n");
 
-    let (mock_identity, mock_username) = create_mock_data(ctx, "TestPlayer".to_string());
 
-    println!("");
-    println!(" ❔ Testing ignore_player");
-
-    let _callback_id = ctx.reducers().on_ignore_player(|ctx, target_identity| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Player ignored: {:?}", target_identity);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to ignore player: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to ignore player");
-            }
-        }
-    });
-    
-    ctx.reducers().ignore_player(mock_identity);
-    thread::sleep(Duration::from_millis(500));
-    
-    
-    println!("");
-    println!(" ❔ Testing unignore_player...");
-    let _callback_id = ctx.reducers().on_unignore_player(|ctx, target_identity| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Player unignored: {:?}", target_identity);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to unignore player: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to unignore player");
-            }
-        }
-    });
-
-    ctx.reducers().unignore_player(mock_identity);
-    thread::sleep(Duration::from_millis(500));
-
-}
-
-fn test_update_position(ctx: &DbConnection, x: i32, y: i32, z: i32) {
+fn test_update_position(ctx: &DbConnection, x: i32, y: i32, z: i32, entity: Entity) {
     println!("📍 Testing update_my_position to ({}, {}, {})", x, y, z);
-    
-    // Create test entity and position
-    let entity = Entity {
-        id: 1, // Test entity ID
-        entity_type: EntityType::Player,
-    };
+    println!("");
     
     let new_position = EntityPosition {
-        id: 1,
+        id: entity.id,
         x,
         y,
         z,
     };
-    
+
     ctx.reducers().update_my_position(entity, new_position);
     
-    let _callback_id = ctx.reducers().on_update_my_position(|ctx, entity, new_position| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Position updated to ({}, {}, {})", 
-                         new_position.x, new_position.y, new_position.z);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to update position: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to update position");
-            }
-        }
-    });
+    
 }
 
-fn test_update_rotation(ctx: &DbConnection, rot_x: i16, rot_y: i16, rot_z: i16) {
-    println!("🔄 Testing update_my_rotation to ({}, {}, {})", rot_x, rot_y, rot_z);
-    
-    let entity = Entity {
-        id: 1, // Test entity ID
-        entity_type: EntityType::Player,
-    };
+fn test_update_rotation(ctx: &DbConnection, rot_x: i16, rot_y: i16, rot_z: i16, entity: Entity) {
     
     let new_rotation = EntityRotation {
-        id: 1,
+        id: entity.id,
         rot_x,
         rot_y,
         rot_z,
     };
     
     ctx.reducers().update_my_rotation(entity, new_rotation);
-    
-    let _callback_id = ctx.reducers().on_update_my_rotation(|ctx, entity, new_rotation| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Rotation updated to ({}, {}, {})", 
-                         new_rotation.rot_x, new_rotation.rot_y, new_rotation.rot_z);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to update rotation: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to update rotation");
-            }
-        }
-    });
 }
 
 fn test_apply_damage(ctx: &DbConnection, victim_id: u32, damage: u32) {
     println!("💥 Testing apply_damage: {} damage to entity {}", damage, victim_id);
     
-    let entity_id = EntityId { value: victim_id };
+    let entity_id: PlayerAccountId = PlayerAccountId { value: victim_id };
     ctx.reducers().apply_damage(entity_id, damage);
     
-    let _callback_id = ctx.reducers().on_apply_damage(|ctx, victim, damage| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Applied {} damage to entity {:?}", damage, victim);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to apply damage: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to apply damage");
-            }
-        }
-    });
 }
 
 fn test_set_player_roles(ctx: &DbConnection) {
@@ -514,19 +557,6 @@ fn test_set_player_roles(ctx: &DbConnection) {
     
     ctx.reducers().set_player_roles(target_identity, requested_role.clone());
     
-    let _callback_id = ctx.reducers().on_set_player_roles(|ctx, target_identity, requested_role| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Set player role to {:?} for {:?}", requested_role, target_identity);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to set player roles (expected): {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to set player roles");
-            }
-        }
-    });
 }
 
 

@@ -43,14 +43,14 @@ pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ChatAr
     
     // Sort by created_at timestamp (oldest first)
     all_messages.sort_by(|a, b| a.get_created_at().cmp(&b.get_created_at()));
-    
-    // If we have 10 or fewer messages, no archiving needed
-    if all_messages.len() <= 10 {
+
+    // If we have 100 or fewer messages, no archiving needed
+    if all_messages.len() <= 100 {
         return Ok(());
     }
-    
-    // Calculate how many messages to archive (keep only the latest 10)
-    let messages_to_archive = all_messages.len() - 10;
+
+    // Calculate how many messages to archive (keep only the latest 100)
+    let messages_to_archive = all_messages.len() - 100;
     let messages_to_move = &all_messages[0..messages_to_archive];
     
     let mut archived_count = 0;

@@ -1,7 +1,7 @@
 use spacetimedb::{reducer, table, Identity, ReducerContext, Timestamp};
 use spacetimedb::SpacetimeType;
 
-use spacetimedsl::{dsl, Wrapper};
+use spacetimedsl::{dsl};
 
 use crate::modules::player::*;
 use crate::modules::common::*;
@@ -29,6 +29,7 @@ pub struct RolesAudit {
     #[auto_inc]
     #[create_wrapper]
     id: u32,
+    actioner: Identity,
     identity: Identity,
     previous_role: RoleType,
     new_role: RoleType,
@@ -119,7 +120,7 @@ pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, request
 
 
     // Log the role change in the audit table, recording who performed the change
-    dsl.create_roles_audit(ctx.sender.clone(), previous_role.clone(), requested_role.clone())
+    dsl.create_roles_audit(ctx.sender.clone(), target_identity, previous_role.clone(), requested_role.clone())
         .map_err(|e| format!("Failed to create audit log: {:?}", e))?;
     
     log::info!(

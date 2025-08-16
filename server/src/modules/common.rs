@@ -24,9 +24,7 @@ pub fn try_server_or_dev(ctx: &ReducerContext) -> bool {
 }
 
 pub fn try_developer_only(ctx: &ReducerContext) -> bool {
-    let dsl = dsl(ctx);
-
-    if ctx.sender.to_string().contains("c2008f5d59ff90d30984fed") {
+    if ctx.sender.to_string().contains("c200a78183f5f9062ea") {
         //log::info!("I'm Mouse's desktop!");
         return true;
     }
@@ -36,8 +34,6 @@ pub fn try_developer_only(ctx: &ReducerContext) -> bool {
 }
 
 pub fn try_server_only(ctx: &ReducerContext) -> bool {
-    let dsl = dsl(ctx);
-
     if ctx.sender == ctx.identity() {
         //log::info!("I'm a server!");
         return true;
