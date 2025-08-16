@@ -4,7 +4,6 @@ use module_bindings::*;
 use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table};
 use std::thread;
 use std::time::Duration;
-use reqwest::*;
 
 fn main() {
     println!("🚀 SpacetimeDB Reducer Test Client Starting...");
@@ -145,7 +144,7 @@ fn general_callbacks(ctx: &DbConnection) {
         }
     });
 
-    let _update_rotation_callback_id = ctx.reducers().on_update_my_rotation(|ctx, entity, new_rotation| {
+    let _update_rotation_callback_id = ctx.reducers().on_update_my_rotation(|ctx, _entity, new_rotation| {
         match &ctx.event.status {
             spacetimedb_sdk::Status::Committed => {
                 println!("✅ Rotation updated to ({}, {}, {})", 
@@ -160,7 +159,7 @@ fn general_callbacks(ctx: &DbConnection) {
         }
     });
 
-    let _update_position_callback_id = ctx.reducers().on_update_my_position(|ctx, entity, new_position| {
+    let _update_position_callback_id = ctx.reducers().on_update_my_position(|ctx, _entity, new_position| {
         match &ctx.event.status {
             spacetimedb_sdk::Status::Committed => {
                 println!("✅ Position updated to ({}, {}, {})", 
@@ -317,7 +316,7 @@ fn run_reducer_tests(ctx: &DbConnection) {
 }
 
 /// Test Chat System Reducers
-fn get_mock_identity(ctx: &DbConnection) -> Option<Identity> {
+fn get_mock_identity() -> Option<Identity> {
     // Generate initial server identity and record response
     let client = reqwest::blocking::Client::new();
     let identity_response = client
@@ -371,7 +370,7 @@ fn get_mock_identity(ctx: &DbConnection) -> Option<Identity> {
 fn create_mock_data(ctx: &DbConnection, username: String)-> (Identity, String) {
     println!(" 🏗️ Generating a Mock Identity");
     // Create a dummy identity for testing (in a real scenario, this would be another player's identity)
-    let mock_identity = get_mock_identity(ctx).expect("Failed to get mock identity");
+    let mock_identity = get_mock_identity().expect("Failed to get mock identity");
     println!("");
 
     println!(" 🏗️ Generating a Mock User");
@@ -495,7 +494,7 @@ fn test_admin_system(ctx: &DbConnection) {
 fn test_send_global_chat(ctx: &DbConnection, message: &str) {
     println!("📢 Testing send_global_chat with message: '{}'", message);
     
-    ctx.reducers().send_global_chat(message.to_string());
+    let _ = ctx.reducers().send_global_chat(message.to_string());
     thread::sleep(Duration::from_millis(100));
     println!("");
     // Register callback to see the result
@@ -505,7 +504,7 @@ fn test_send_global_chat(ctx: &DbConnection, message: &str) {
 fn test_send_private_chat(ctx: &DbConnection, target_username: &str, message: &str) {
     println!("💌 Testing send_private_chat to '{}': '{}'", target_username, message);
     
-    ctx.reducers().send_private_chat(target_username.to_string(), message.to_string());
+    let _ = ctx.reducers().send_private_chat(target_username.to_string(), message.to_string());
     thread::sleep(Duration::from_millis(500));
     println!("");
 }
@@ -523,7 +522,7 @@ fn test_update_position(ctx: &DbConnection, x: i32, y: i32, z: i32, entity: Enti
         z,
     };
 
-    ctx.reducers().update_my_position(entity, new_position);
+    let _ = ctx.reducers().update_my_position(entity, new_position);
     
     
 }
@@ -537,14 +536,14 @@ fn test_update_rotation(ctx: &DbConnection, rot_x: i16, rot_y: i16, rot_z: i16, 
         rot_z,
     };
     
-    ctx.reducers().update_my_rotation(entity, new_rotation);
+    let _ = ctx.reducers().update_my_rotation(entity, new_rotation);
 }
 
 fn test_apply_damage(ctx: &DbConnection, victim_id: u32, damage: u32) {
     println!("💥 Testing apply_damage: {} damage to entity {}", damage, victim_id);
     
     let entity_id: PlayerAccountId = PlayerAccountId { value: victim_id };
-    ctx.reducers().apply_damage(entity_id, damage);
+    let _ = ctx.reducers().apply_damage(entity_id, damage);
     
 }
 
@@ -555,7 +554,7 @@ fn test_set_player_roles(ctx: &DbConnection) {
     let target_identity = ctx.identity();
     let requested_role = RoleType::TrustedUser;
     
-    ctx.reducers().set_player_roles(target_identity, requested_role.clone());
+    let _ = ctx.reducers().set_player_roles(target_identity, requested_role.clone());
     
 }
 
@@ -590,7 +589,7 @@ fn user_input_loop(ctx: &DbConnection) {
                 
                 let name = name.trim();
                 if !name.is_empty() {
-                    ctx.reducers().set_username(name.to_string());
+                    let _ = ctx.reducers().set_username(name.to_string());
                     println!("✅ Name set to '{}'", name);
                 } else {
                     println!("❌ Name cannot be empty");
