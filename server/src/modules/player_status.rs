@@ -15,7 +15,7 @@ pub struct PlayerStatus {
     pub flashed: f32,       // 0.0-1.0
     pub emped: f32,         // 0.0-1.0
     pub poisoned: f32,      // 0.0-1.0
-    pub last_updated: Timestamp,
+    modified_at: Timestamp,
 }
 
 impl PlayerStatus {
@@ -71,7 +71,7 @@ pub fn apply_damage(ctx: &ReducerContext, victim: crate::modules::player::Player
             log::debug!("Health reduced for player {} (health: {} -> {})", 
                        victim, original_health, status_record.base_health);
         } else {
-            log::warn!("Player {} died! (health: {} -> 0)", victim, original_health);
+            log::debug!("Player {} died! (health: {} -> 0)", victim, original_health);
             status_record.base_health = 0;
         }
     }

@@ -3,7 +3,6 @@ use spacetimedsl::dsl;
 
 use crate::modules::player::*;
 use crate::modules::common::*;
-use crate::modules::util::log_player_action_audit;
 
 #[dsl(plural_name = global_chat_messages)]
 #[table(name = global_chat_message, public)]
@@ -12,7 +11,6 @@ pub struct GlobalChatMessage {
     #[auto_inc]
     #[create_wrapper]
     id: u32,
-
     pub identity: Identity, // FK to Player
     pub username: String,
     pub message: String,

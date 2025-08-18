@@ -465,15 +465,24 @@ fn test_entity_system(ctx: &DbConnection) {
 fn test_combat_system(ctx: &DbConnection) {
     println!(">> ⚔️ Testing Combat System Reducers...");
     println!("");
+
+    let (mock_identity, mock_username) = create_mock_data(ctx, "Combat_Test".to_string());
+    
+    // Get player_account record for mock_identity
+    let player_account = ctx.db.player_account()
+        .identity()
+        .find(&mock_identity)
+        .expect("Mock player account should exist");
     
     // Test apply_damage (using a test entity ID)
-    test_apply_damage(ctx, 1, 150);
+    test_apply_damage(ctx, player_account.id, 100);
     thread::sleep(Duration::from_millis(500));
     println!("");
     // Test different damage amounts
-    test_apply_damage(ctx, 1, 75);
+    test_apply_damage(ctx, player_account.id, 1500);
     thread::sleep(Duration::from_millis(500));
     println!("");
+    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
     println!("<<   Combat system tests completed\n");
 }
 

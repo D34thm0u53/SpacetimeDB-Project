@@ -1,9 +1,10 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
 
-use spacetimedsl::{ dsl, Wrapper };
-use log::*;
+use spacetimedsl::*;
 use crate::modules::util::*;
 use crate::modules::entity::*;
+
+use crate::modules::player_status::*;
 
 // player_account table is a persistent storage for player data.
 
@@ -66,50 +67,61 @@ pub struct OfflinePlayer {
 
 
 #[spacetimedb::reducer]
-pub fn set_username(ctx: &ReducerContext, username: String) {
+pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), String> {
     let dsl = dsl(ctx);
-    // Check if the username is valid
-    match validate_name(username.clone()) {
-        Ok(valid_username) => {
-            // Check if the username already exists in the database
-            if dsl.get_player_account_by_username(&valid_username).is_ok() {
-                log::warn!("Username [{}] already exists", valid_username);
-                return;
-            }
-            // Find or create the player's account by identity
-            let mut player = match dsl.get_player_account_by_identity(&ctx.sender) {
-                Ok(acc) => acc,
-                Err(_) => {
-                    match create_player_account_and_online(ctx, ctx.sender, valid_username.clone()) {
-                        Ok((acc, _online)) => acc,
-                        Err(e) => {
-                            log::error!("Failed to create PlayerAccount: {}", e);
-                            return;
-                        }
-                    }
-                }
-            };
+    log::trace!("Attempting to set username for player: [{}] to [{}]", ctx.sender, t_username);
 
-            // Update username using generated setter
-            player.set_username(&valid_username);
+    let b_is_requested_username_valid = validate_name(t_username.clone());
 
-            log_player_action_audit(
-                ctx,
-                &format!(
-                    "Player [{}] (Identity: [{}]) set username to [{}]",
-                    player.get_id(),
-                    player.get_identity(),
-                    valid_username
-                ),
-            );
-
-            // Persist the change to the PlayerAccount
-            dsl.update_player_account_by_identity(player).expect("Failed to update player record");
-        },
-        Err(err) => {
-            log::warn!("Invalid username: {}", err);
-        }
+    if b_is_requested_username_valid.is_err() {
+        log::debug!("Invalid username: {}", b_is_requested_username_valid.unwrap_err());
+        return Err("Invalid username requested".to_string());
     }
+
+    let t_requested_username = b_is_requested_username_valid.unwrap();
+
+    // Check if the username already exists in the database
+    
+    let player_account_with_requested_username = dsl.get_player_account_by_username(&t_requested_username);
+    // Check if the username belongs to the requesting player
+    if player_account_with_requested_username.is_ok() {
+        if player_account_with_requested_username.unwrap().identity == ctx.sender {
+            // The requesting user already has this username set, no-op
+            return Ok(());
+        }
+        log::debug!("Username [{}] already exists", t_requested_username);
+        return Err("Username already taken".to_string());
+    }
+
+    // If the username is not taken, we can proceed with the update
+    // Get the player_account record of the requesting user.
+
+    let current_user_player_account = dsl.get_player_account_by_identity(&ctx.sender);
+
+    if current_user_player_account.is_err() {
+        log::debug!("Failed to get current user player account");
+        return Err("Failed to get current user player account".to_string());
+    }
+
+    let mut current_user_player_account = current_user_player_account.unwrap();
+
+
+    // Update username using generated setter
+    current_user_player_account.set_username(&t_requested_username);
+
+    log_player_action_audit(
+        ctx,
+        &format!(
+            "Player [{}] (Identity: [{}]) set username to [{}]",
+            current_user_player_account.get_id(),
+            current_user_player_account.get_identity(),
+            t_requested_username
+        ),
+    );
+
+    // Persist the change to the PlayerAccount
+    dsl.update_player_account_by_identity(current_user_player_account).expect("Failed to update player record");
+    Ok(())
 }
 
 
@@ -219,7 +231,9 @@ pub fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity
 
     // Created records in related tables
     create_entity_tree(ctx, EntityType::Player);
+    dsl.create_player_status(player_account.get_id(), identity, 500, 1000, 0.0, 0.0, 0.0, 0.0).map_err(|e| format!("Failed to create PlayerStatus: {:?}", e))?;
 
+    
     Ok((player_account, online_player))
 }
 
@@ -250,7 +264,12 @@ fn move_player_to_offline(ctx: &ReducerContext) {
     else {
         let player_record = online_player.unwrap();
         dsl.create_offline_player(player_record.get_id(), player_record.identity).expect("Failed to create offline player");
-        dsl.delete_online_player_by_id(player_record.get_id());
+        match dsl.delete_online_player_by_id(player_record.get_id()) {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("Failed to delete online player: {:?}", e);
+            }
+        }
 
         log_player_action_audit(
                 ctx,
@@ -272,7 +291,12 @@ fn move_player_to_online(ctx: &ReducerContext) {
     else {
         let player_record = offline_player.unwrap();
         dsl.create_online_player(player_record.get_id(), player_record.identity).expect("Failed to create online player");
-        dsl.delete_offline_player_by_id(player_record.get_id());
+        match dsl.delete_offline_player_by_id(player_record.get_id()) {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("Failed to delete offline player: {:?}", e);
+            }
+        }
 
         log_player_action_audit(
                 ctx,

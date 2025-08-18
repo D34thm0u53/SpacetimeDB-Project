@@ -1,6 +1,5 @@
 use spacetimedb::{table, Identity, ReducerContext};
 use spacetimedsl::{ dsl, Wrapper };
-use log::*;
 use crate::modules::player::*;
 
 
@@ -16,29 +15,26 @@ pub owner_ident: Identity, // Fk to the player table
 
 
 pub fn try_server_or_dev(ctx: &ReducerContext) -> bool {
-
-    let is_server = try_server_only(ctx);
-    let is_dev = try_developer_only(ctx);
-
-    is_server || is_dev
+    try_developer_only(ctx) || try_server_only(ctx)
 }
 
 pub fn try_developer_only(ctx: &ReducerContext) -> bool {
     if ctx.sender.to_string().contains("c200a78183f5f9062ea") {
-        //log::info!("I'm Mouse's desktop!");
+        log::trace!("Developer user {} is performing a developer-only action", ctx.sender);
         return true;
     }
     else {
+        log::warn!("Non-developer user attempted developer-only action: {}", ctx.sender);
         return false;
     }
 }
 
 pub fn try_server_only(ctx: &ReducerContext) -> bool {
     if ctx.sender == ctx.identity() {
-        //log::info!("I'm a server!");
         return true;
     }
     else {
+        log::warn!("Non-server user attempted server-only action: {}", ctx.sender);
         return false;
     }
 }
