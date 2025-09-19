@@ -21,7 +21,9 @@ fn database_init(ctx: &ReducerContext) {
     // initi the owner table
     create_owner_record(ctx)
         .expect("Failed to create owner record");
-    
+    dsl.create_auth_key("primary_auth","this_is_a_test_auth_key")
+        .expect("Failed to create auth key");
+
     // scheduler_chunks::init(ctx)
     //     .expect("Failed to initialize chunk scheduler");
 

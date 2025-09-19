@@ -5,8 +5,184 @@ use crate::modules::util::*;
 use crate::modules::entity::*;
 
 use crate::modules::player_status::*;
+use std::time::Duration;
 
-// player_account table is a persistent storage for player data.
+
+/*
+Private Authentication.
+
+Follows Chippy@STDB.discords "So Stupid it works" flow for private authentication without reducer callbacks.
+
+Client Connects.
+Added to "Guests" table.
+User Provides Auth Key.
+If Auth Key is valid: Add to IDENTITIES mutex.
+Scheduled reducer processes Authenticated Users.
+    Removes From Guests
+    Adds to Online Users
+        Optionally: removes from Offline Users.
+
+*/
+
+use lazy_static::lazy_static;
+use std::sync::Mutex;
+use spacetimedb::{ScheduleAt, TimeDuration};
+
+
+lazy_static! {
+    static ref IDENTITIES: Mutex<Vec<Identity>> = Mutex::new(Vec::new());
+}
+
+#[dsl(plural_name = guest_users)]
+#[table(name = guest_user, private)]
+pub struct GuestUser {
+    #[primary_key]
+    #[auto_inc]
+    #[create_wrapper]
+    id: u32, // Auto-incremented ID for the key record
+    #[unique]
+    pub identity: Identity,
+}
+
+#[dsl(plural_name = auth_keys)]
+#[table(name = auth_key, private)]
+pub struct AuthKey {
+    #[primary_key]
+    #[auto_inc]
+    #[create_wrapper]
+    id: u32, // Auto-incremented ID for the key record
+    #[unique]
+    pub key_name: String,
+    #[unique]
+    pub key: String,
+}
+
+
+#[spacetimedb::reducer]
+pub fn private_authenticate(ctx: &ReducerContext, key: String) {
+    let dsl = dsl(ctx);
+
+    if let Ok(auth_key) = dsl.get_auth_key_by_key_name(&"primary_auth") {
+        if key == auth_key.key {
+            IDENTITIES.lock().unwrap().push(ctx.sender);
+        }
+    }
+}
+
+/* Now we have a scheduled reducer, every 1 second, that checks the length of IDENTITIES.
+
+For each identity in this list, we find the corresponding player account and mark it as online, removing it from the list of guest users.
+
+*/ 
+
+
+// Schedule table for the authentication processor
+#[dsl(plural_name = auth_process_schedules)]
+#[table(name = auth_process_schedule, scheduled(process_authenticated_users), private)]
+pub struct AuthProcessSchedule {
+    #[primary_key]
+    #[auto_inc]
+    #[create_wrapper]
+    id: u64,
+    scheduled_at: spacetimedb::ScheduleAt,
+    current_update: u8,
+}
+
+pub fn init(ctx: &ReducerContext) -> Result<(), String> {
+    let dsl = dsl(ctx); // Waiting for DSL implementation of timers
+
+    // Once per minute, check if we have over our target for global chat messages
+    dsl.create_auth_process_schedule(
+        spacetimedb::ScheduleAt::Interval(Duration::from_secs(60).into()),
+        0,
+    )?;
+    Ok(())
+}
+
+
+
+#[spacetimedb::reducer]
+pub fn process_authenticated_users(ctx: &ReducerContext, _args: AuthProcessSchedule) -> Result<(), String> {
+    // Security check - only allow scheduler to call this
+    if ctx.sender != ctx.identity() {
+        return Err("This reducer can only be called by the scheduler".to_string());
+    }
+
+    let dsl = dsl(ctx);
+    
+    // Get all identities that need processing
+    let mut identities = IDENTITIES.lock().unwrap();
+    if identities.is_empty() {
+        return Ok(()); // Nothing to process
+    }
+
+    log::info!("Processing {} authenticated identities", identities.len());
+    
+    // Process each identity
+    let identities_to_process: Vec<Identity> = identities.drain(..).collect();
+    
+    for identity in identities_to_process {
+        match process_authenticated_identity(ctx, identity) {
+            Ok(_) => {
+                log::info!("Successfully processed authenticated identity: {}", identity);
+            },
+            Err(e) => {
+                log::error!("Failed to process authenticated identity {}: {}", identity, e);
+                // Re-add to queue for retry (optional)
+                identities.push(identity);
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+fn process_authenticated_identity(ctx: &ReducerContext, identity: Identity) -> Result<(), String> {
+    let dsl = dsl(ctx);
+    
+    // Remove from guest users if exists
+    if let Ok(_guest_user) = dsl.get_guest_user_by_identity(&identity) {
+        match dsl.delete_guest_user_by_identity(&identity) {
+            Ok(_) => log::info!("Removed guest user for identity: {}", identity),
+            Err(e) => log::warn!("Failed to remove guest user for {}: {:?}", identity, e),
+        }
+    }
+    
+    // Check if player account exists
+    if !does_player_account_exist(ctx) {
+                // Create a new player account if it doesn't exist
+                let default_username: String = ctx.sender.to_string().chars().take(28).collect();
+                match create_player_account_and_online(ctx, ctx.sender, default_username) {
+                    Ok((player_account, online_player)) => {
+                        log::info!("Created new PlayerAccount: {:?}", player_account);
+                        log::info!("Created new OnlinePlayer: {:?}", online_player);
+                    },
+                    Err(e) => {
+                        log::error!("Failed to create player account: {}", e);
+                    }
+                }
+            } else {
+                log::info!("Player account already exists for identity [{}]", ctx.sender);
+                move_player_to_online(ctx)
+            }
+            log::info!("Player [{}] moved to online.", ctx.sender);
+    
+    log_player_action_audit(
+        ctx,
+        &format!("Processed authenticated identity: {}", identity),
+    );
+    
+    Ok(())
+}
+
+
+
+
+
+
+
+
+
 
 #[dsl(plural_name = player_accounts)]
 #[table(name = player_account, public)]
