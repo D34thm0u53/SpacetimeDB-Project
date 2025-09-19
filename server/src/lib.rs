@@ -1,6 +1,7 @@
 use spacetimedb::ReducerContext;
 use spacetimedb::{reducer};
 use spacetimedsl::dsl;
+use log::*;
 
 
 pub mod modules;
@@ -20,17 +21,15 @@ fn database_init(ctx: &ReducerContext) {
     // initi the owner table
     create_owner_record(ctx)
         .expect("Failed to create owner record");
-    
+    dsl.create_auth_key("primary_auth","this_is_a_test_auth_key")
+        .expect("Failed to create auth key");
+
     // scheduler_chunks::init(ctx)
     //     .expect("Failed to initialize chunk scheduler");
 
     scheduler_chat_archive::init(ctx)
         .expect("Failed to initialize chat archive timer");
     // Initialize the database
-
-    // Create the player table if it doesn't exist
-
-    // dsl.create_role(1, ctx.identity(), false, false, false) .expect("Failed to create initial role");
 
     // Initialize default weapons
     // crate::modules::weapon::initialize_default_weapons(ctx);
@@ -39,6 +38,7 @@ fn database_init(ctx: &ReducerContext) {
 #[reducer(client_connected)]
 // Called when a client connects to a SpacetimeDB database server
 fn client_connected(ctx: &ReducerContext) {
+    log::info!("Client connected: {}", ctx.sender);
     handle_player_connection_event(ctx, 1);
 }
 

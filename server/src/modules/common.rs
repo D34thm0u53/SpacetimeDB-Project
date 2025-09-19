@@ -1,6 +1,5 @@
 use spacetimedb::{table, Identity, ReducerContext};
 use spacetimedsl::{ dsl, Wrapper };
-
 use crate::modules::player::*;
 
 
@@ -15,14 +14,28 @@ pub owner_ident: Identity, // Fk to the player table
 }
 
 
-pub fn try_server_only(ctx: &ReducerContext) -> Result<(), String> {
-    let dsl = dsl(ctx);
-    let owner = dsl.get_owner_identity_by_id(PlayerAccountId::new(0)).map_err(|e| format!("Failed to retrieve owner identity: {:?}", e))?;
+pub fn try_server_or_dev(ctx: &ReducerContext) -> bool {
+    try_developer_only(ctx) || try_server_only(ctx)
+}
 
-    if ctx.sender == owner.owner_ident {
-        return Ok(());
-    } else {
-        Err("This reducer can only be called by SpacetimeDB!".to_string())
+pub fn try_developer_only(ctx: &ReducerContext) -> bool {
+    if ctx.sender.to_string().contains("c200a78183f5f9062ea") {
+        log::trace!("Developer user {} is performing a developer-only action", ctx.sender);
+        return true;
+    }
+    else {
+        log::warn!("Non-developer user attempted developer-only action: {}", ctx.sender);
+        return false;
+    }
+}
+
+pub fn try_server_only(ctx: &ReducerContext) -> bool {
+    if ctx.sender == ctx.identity() {
+        return true;
+    }
+    else {
+        log::warn!("Non-server user attempted server-only action: {}", ctx.sender);
+        return false;
     }
 }
 

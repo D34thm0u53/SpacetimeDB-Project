@@ -3,7 +3,6 @@ use spacetimedsl::dsl;
 
 use crate::modules::player::*;
 use crate::modules::common::*;
-use crate::modules::util::log_player_action_audit;
 
 #[dsl(plural_name = global_chat_messages)]
 #[table(name = global_chat_message, public)]
@@ -12,7 +11,6 @@ pub struct GlobalChatMessage {
     #[auto_inc]
     #[create_wrapper]
     id: u32,
-
     pub identity: Identity, // FK to Player
     pub username: String,
     pub message: String,
@@ -134,16 +132,16 @@ pub fn unignore_player(ctx: &ReducerContext, target_identity: Identity) -> Resul
     // Check if ignore relationship already exists
     match dsl.get_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity) {
         Ok(_existing_pair) => {
-            return Err("Player is already ignored".to_string());
-        }
-        Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
-            // No existing ignore relationship, proceed to create one
-
             dsl.delete_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity)
                 .map_err(|e| format!("Failed to delete ignore relationship: {:?}", e))?;
 
             log::info!("Player {} unignored player {}", ctx.sender, target_identity);
             Ok(())
+        }
+        Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
+            // No existing ignore relationship, proceed to create one
+            return Err("Player is not ignored".to_string());
+            
         }
         Err(e) => {
             Err(format!("Failed to lookup ignore pair: {:?}", e))
@@ -176,6 +174,7 @@ pub fn send_private_chat(ctx: &ReducerContext, target_username: String, message:
     let dsl = dsl(ctx);
     // Look up the receiver's identity by username
     let Some(receiver_identity) = get_player_identity_by_username(ctx, &target_username) else {
+        log::warn!("Failed to send private message: Target player '{}' not found", target_username);
         return Err("Target player not found".to_string());
     };
     // Save the message regardless of ignore status

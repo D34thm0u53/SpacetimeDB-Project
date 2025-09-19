@@ -8,7 +8,7 @@ pub mod util;
 pub mod roles;
 pub mod player_status;
 pub mod chat;
-
+pub mod test_data;
 // 
 // pub mod admin_tools;
 // pub mod uuid;

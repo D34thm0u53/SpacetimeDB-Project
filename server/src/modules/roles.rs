@@ -1,9 +1,10 @@
 use spacetimedb::{reducer, table, Identity, ReducerContext, Timestamp};
 use spacetimedb::SpacetimeType;
 
-use spacetimedsl::{dsl, Wrapper};
+use spacetimedsl::{dsl};
 
 use crate::modules::player::*;
+use crate::modules::common::*;
 
 // Store User Roles
 #[dsl(plural_name = roles)]
@@ -28,6 +29,7 @@ pub struct RolesAudit {
     #[auto_inc]
     #[create_wrapper]
     id: u32,
+    actioner: Identity,
     identity: Identity,
     previous_role: RoleType,
     new_role: RoleType,
@@ -44,43 +46,38 @@ pub enum RoleType {
 
 // Admin Tools
 
-
-
 #[reducer]
 /// Allows game admins and server admins to set another player's roles.
 pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, requested_role: RoleType) -> Result<(), String> {
-    // Authorization check: Ensure the caller is a game admin or server admin
-    if !is_admin_tools_authorized(ctx) {
-        log::warn!("Unauthorized attempt to set roles by {:?}", ctx.sender);
-        return Err("Unauthorized access".to_string());
+    if !try_server_or_dev(ctx) {
+        if !is_admin_tools_authorized(ctx) {
+            log::warn!("Unauthorized attempt to set roles by {:?}", ctx.sender);
+            return Err("Unauthorized access".to_string());
+        }
     }
-
-
+    
     
     let dsl = dsl(ctx);
 
     // Get target account and handle errors properly
-    let target_account = dsl.get_player_account_by_identity(&target_identity)
-        .map_err(|e| format!("Failed to find player account: {:?}", e))?;
+    let target_account = dsl.get_player_account_by_identity(&target_identity)?;
 
-    let target_user_id = target_account.get_id();
 
     // Fetch or create the user's role profile
-    let mut user_roles_profile = match dsl.get_role_by_user_id(&target_user_id) {
+    let mut user_roles_profile = match dsl.get_role_by_user_id(&target_account.get_id()) {
         Ok(existing_role) => existing_role,
         Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
             // Create a default role if none exists
-
             dsl.create_role(
                 0,
-                target_user_id,
+                target_account.get_id(),
                 false,
                 false,
                 false
-            )
-            .map_err(|e| format!("Failed to create default role for user: {:?}", e))?
+            )?
         }
         Err(e) => {
+            log::warn!("Failed to retrieve user roles for {:?}: {:?}", target_identity, e);
             return Err(format!("Failed to retrieve role: {:?}", e));
         }
     };
@@ -119,8 +116,7 @@ pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, request
 
 
     // Log the role change in the audit table, recording who performed the change
-    dsl.create_roles_audit(ctx.sender.clone(), previous_role.clone(), requested_role.clone())
-        .map_err(|e| format!("Failed to create audit log: {:?}", e))?;
+    dsl.create_roles_audit(ctx.sender.clone(), target_identity, previous_role.clone(), requested_role.clone())?;
     
     log::info!(
         "[Reducer: set_player_roles] Role updated for user {} from {:?} to {:?} by {} (action: set_player_roles)",
@@ -148,7 +144,6 @@ fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
             }
         }
     }
-
     return authorised
 }
 
