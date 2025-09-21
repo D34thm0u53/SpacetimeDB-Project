@@ -5,6 +5,13 @@ use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table};
 use std::thread;
 use std::time::Duration;
 
+// Global constants
+const DB_NAME: &str = "fps-base";
+const HOST: &str = "https://astro-mouse.org";
+// const HOST: &str = "https://maincloud.spacetimedb.com";
+
+
+// Entry point of the application
 fn main() {
     println!("🚀 SpacetimeDB Reducer Test Client Starting...");
     
@@ -36,14 +43,6 @@ fn main() {
     handle.join().unwrap();
 }
 
-/// The URI of the SpacetimeDB instance hosting our chat database and module.
-const HOST: &str = "https://astro-mouse.gallery";
-// const HOST: &str = "https://maincloud.spacetimedb.com";
-
-
-/// The database name we chose when we published our module.
-const DB_NAME: &str = "fps-base";
-
 /// Load credentials from a file and connect to the database.
 fn connect_to_db() -> DbConnection {
     DbConnection::builder()
@@ -68,7 +67,6 @@ fn connect_to_db() -> DbConnection {
 
 fn creds_store() -> credentials::File {
     credentials::File::new("fps-base")
-    // credentials::File::new("maincloud_fps-base")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.
@@ -320,7 +318,7 @@ fn get_mock_identity() -> Option<Identity> {
     // Generate initial server identity and record response
     let client = reqwest::blocking::Client::new();
     let identity_response = client
-        .post("https://astro-mouse.gallery/v1/identity")
+        .post(format!("{}/v1/identity", HOST))
         .send();
 
     match identity_response {
