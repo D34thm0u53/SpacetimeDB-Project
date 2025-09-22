@@ -7,6 +7,7 @@ use log::*;
 pub mod modules;
 use modules::player::*;
 use modules::roles::*;
+use modules::*;
 
 pub mod schedulers;
 use schedulers::*;
@@ -28,6 +29,9 @@ fn database_init(ctx: &ReducerContext) {
     //     .expect("Failed to initialize chunk scheduler");
 
     scheduler_chat_archive::init(ctx)
+        .expect("Failed to initialize chat archive timer");
+
+    player::init(ctx)
         .expect("Failed to initialize chat archive timer");
     // Initialize the database
 

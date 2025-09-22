@@ -1,5 +1,5 @@
 [package]
-name = "Mouse-Game"
+name = "mouse_game"
 description = "The begining of an FPS running on SpaceTimeDB"
 homepage = ""
 repository = "https://github.com/D34thm0u53/SpacetimeDB-Project"
@@ -18,3 +18,4 @@ log = "0.4"
 glam = "0.30.2"
 spacetimedsl = "0.10.0"
 lazy_static = "1.5.0"
+unicode-normalization = "0.1.24"

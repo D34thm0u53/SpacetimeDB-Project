@@ -13,16 +13,17 @@ Private Authentication.
 
 Follows Chippy@STDB.discords "So Stupid it works" flow for private authentication without reducer callbacks.
 
-Client Connects.
-Added to "Guests" table.
-User Provides Auth Key.
-If Auth Key is valid: Add to IDENTITIES mutex.
-Scheduled reducer processes Authenticated Users.
-    Removes From Guests
-    Adds to Online Users
-        Optionally: removes from Offline Users.
+1.  Client Connects.
+2.  Added to "Guests" table.
+3.  User Provides Auth Key.
+4.  If Auth Key is valid: Add to IDENTITIES mutex.
+5.  Scheduled reducer processes Authenticated Users.
+        Removes From Guests
+        Adds to Online Users
+            Optionally: removes from Offline Users.
 
 */
+
 
 use lazy_static::lazy_static;
 use std::sync::Mutex;
@@ -32,6 +33,8 @@ use spacetimedb::{ScheduleAt, TimeDuration};
 lazy_static! {
     static ref IDENTITIES: Mutex<Vec<Identity>> = Mutex::new(Vec::new());
 }
+
+//Guest User Table
 
 #[dsl(plural_name = guest_users)]
 #[table(name = guest_user, private)]
@@ -61,20 +64,12 @@ pub struct AuthKey {
 #[spacetimedb::reducer]
 pub fn private_authenticate(ctx: &ReducerContext, key: String) {
     let dsl = dsl(ctx);
-
     if let Ok(auth_key) = dsl.get_auth_key_by_key_name(&"primary_auth") {
         if key == auth_key.key {
             IDENTITIES.lock().unwrap().push(ctx.sender);
         }
     }
 }
-
-/* Now we have a scheduled reducer, every 1 second, that checks the length of IDENTITIES.
-
-For each identity in this list, we find the corresponding player account and mark it as online, removing it from the list of guest users.
-
-*/ 
-
 
 // Schedule table for the authentication processor
 #[dsl(plural_name = auth_process_schedules)]
@@ -93,7 +88,7 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
 
     // Once per minute, check if we have over our target for global chat messages
     dsl.create_auth_process_schedule(
-        spacetimedb::ScheduleAt::Interval(Duration::from_secs(60).into()),
+        spacetimedb::ScheduleAt::Interval(Duration::from_millis(500).into()),
         0,
     )?;
     Ok(())
@@ -107,8 +102,6 @@ pub fn process_authenticated_users(ctx: &ReducerContext, _args: AuthProcessSched
     if ctx.sender != ctx.identity() {
         return Err("This reducer can only be called by the scheduler".to_string());
     }
-
-    let dsl = dsl(ctx);
     
     // Get all identities that need processing
     let mut identities = IDENTITIES.lock().unwrap();
@@ -137,6 +130,16 @@ pub fn process_authenticated_users(ctx: &ReducerContext, _args: AuthProcessSched
     Ok(())
 }
 
+/// Processes an authenticated identity by removing it from the guest users table,
+/// creating a player account and moving the player online if necessary, or moving
+/// an existing player to online status. Logs actions and audits player activity.
+///
+/// # Arguments
+/// * `ctx` - The reducer context for database operations.
+/// * `identity` - The authenticated identity to process.
+///
+/// # Returns
+/// * `Ok(())` on success, or `Err(String)` with an error message on failure.
 fn process_authenticated_identity(ctx: &ReducerContext, identity: Identity) -> Result<(), String> {
     let dsl = dsl(ctx);
     
@@ -149,10 +152,10 @@ fn process_authenticated_identity(ctx: &ReducerContext, identity: Identity) -> R
     }
     
     // Check if player account exists
-    if !does_player_account_exist(ctx) {
+    if !does_player_account_exist(ctx, identity) {
                 // Create a new player account if it doesn't exist
-                let default_username: String = ctx.sender.to_string().chars().take(28).collect();
-                match create_player_account_and_online(ctx, ctx.sender, default_username) {
+                let default_username: String = identity.to_string().chars().take(28).collect();
+                match create_player_account_and_online(ctx, identity, default_username) {
                     Ok((player_account, online_player)) => {
                         log::info!("Created new PlayerAccount: {:?}", player_account);
                         log::info!("Created new OnlinePlayer: {:?}", online_player);
@@ -165,7 +168,6 @@ fn process_authenticated_identity(ctx: &ReducerContext, identity: Identity) -> R
                 log::info!("Player account already exists for identity [{}]", ctx.sender);
                 move_player_to_online(ctx)
             }
-            log::info!("Player [{}] moved to online.", ctx.sender);
     
     log_player_action_audit(
         ctx,
@@ -247,7 +249,7 @@ pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), Stri
     let dsl = dsl(ctx);
     log::trace!("Attempting to set username for player: [{}] to [{}]", ctx.sender, t_username);
 
-    let b_is_requested_username_valid = validate_name(t_username.clone());
+    let b_is_requested_username_valid = validate_username(t_username.clone());
 
     if b_is_requested_username_valid.is_err() {
         log::debug!("Invalid username: {}", b_is_requested_username_valid.unwrap_err());
@@ -305,79 +307,99 @@ pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), Stri
 
 //// Public Fns ///
 
-// Return player username by identity.
-// Returns the username for a given PlayerAccountsId, or empty string if not found.
-pub fn get_username_by_id(ctx: &ReducerContext, id: PlayerAccountId) -> String {
-    let dsl = dsl(ctx);
-    match dsl.get_player_account_by_id(&id) {
-        Ok(account) => account.get_username().to_string(),
-        Err(_) => String::new(),
-    }
-}
-
-// Returns the username for a given Identity, or empty string if not found.
-pub fn get_username_by_identity(ctx: &ReducerContext, identity: Identity) -> String {
-    let dsl = dsl(ctx);
-    match dsl.get_player_account_by_identity(&identity) {
-        Ok(account) => account.get_username().to_string(),
-        Err(_) => String::new(),
-    }
-}
-
-
-// Returns the Identity for a given username, or empty string if not found.
-pub fn get_identity_by_username(ctx: &ReducerContext, username: String) -> Identity {
-    let dsl = dsl(ctx);
-    match dsl.get_player_account_by_username(&username) {
-        Ok(account) => account.identity,
-        Err(_) => Identity::default(),
-    }
-}
-
-
-pub fn handle_player_connection_event(ctx: &ReducerContext, event: u8 ) {
-    log::info!("Handling event [{}] for player: [{}]", event, ctx.sender);
-    match event {
-        1 => { // Logon event
-            log::info!("Player [{}] logged in", ctx.sender);
-            
-            if !does_player_account_exist(ctx) {
-                // Create a new player account if it doesn't exist
-                let default_username: String = ctx.sender.to_string().chars().take(28).collect();
-                match create_player_account_and_online(ctx, ctx.sender, default_username) {
-                    Ok((player_account, online_player)) => {
-                        log::info!("Created new PlayerAccount: {:?}", player_account);
-                        log::info!("Created new OnlinePlayer: {:?}", online_player);
-                    },
-                    Err(e) => {
-                        log::error!("Failed to create player account: {}", e);
-                        return;
-                    }
+/// Handles player connection events.
+/// 
+/// Valid event codes:
+///   1 = connect (player joins as guest)
+///   2 = disconnect (player leaves)
+pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_type: u8 ) {
+    log::info!("Handling event [{}] for player: [{}]", connection_event_type, ctx.sender);
+    match connection_event_type {
+        1 => { // connection event
+            log::debug!("Player [{}] connected as guest", ctx.sender);
+            match connect_as_guest(ctx) {
+                Ok(guest_user) => {
+                    log::info!("Created new GuestUser: {:?}", guest_user);
+                },
+                Err(e) => {
+                    log::error!("Failed to create guest user: {}", e);
+                    return;
                 }
-            } else {
-                log::info!("Player account already exists for identity [{}]", ctx.sender);
-                move_player_to_online(ctx)
             }
-            log::info!("Player [{}] moved to online.", ctx.sender);
             
         },
-        2 => { // Logoff event
+        2 => { // disconnection event
+            log::debug!("Player [{}] disconnected", ctx.sender);
             move_player_to_offline(ctx)
         },
         _ => {
-            log::warn!("Unknown player connection event: {}", event);
+            log::warn!(
+                "Unknown player connection event: {} (expected 1=connect, 2=disconnect)",
+                connection_event_type
+            );
         }
     }
     
 }
 
 
-pub fn does_player_account_exist(ctx: &ReducerContext) -> bool {
+// Creates a new GuestUser record for the given identity.
+/// # Returns
+/// - `Ok(GuestUser)`: The newly created guest user record.
+/// - `Err(String)`: An error message if creation fails.
+pub fn connect_as_guest(ctx: &ReducerContext) -> Result<GuestUser, String> {
     let dsl = dsl(ctx);
-    dsl.get_player_account_by_identity(&ctx.sender).is_ok()
+    // Check if a GuestUser already exists for this identity
+    match dsl.get_guest_user_by_identity(&ctx.sender) {
+        Ok(existing_guest) => Ok(existing_guest),
+        Err(_) => dsl.create_guest_user(ctx.sender)
+            .map_err(|e| format!("SpacetimeDSL error: {:?}", e)),
+    }
 }
 
-//// private Fns ///
+// Generic player account lookup function that returns the full PlayerAccount
+pub fn get_player_account(ctx: &ReducerContext, lookup: PlayerAccountLookup) -> Option<PlayerAccount> {
+    let dsl = dsl(ctx);
+    match lookup {
+        PlayerAccountLookup::Id(id) => dsl.get_player_account_by_id(&id).ok(),
+        PlayerAccountLookup::Identity(identity) => dsl.get_player_account_by_identity(&identity).ok(),
+        PlayerAccountLookup::Username(username) => dsl.get_player_account_by_username(&username).ok(),
+    }
+}
+
+// Enum to specify which field to search by
+pub enum PlayerAccountLookup {
+    Id(PlayerAccountId),
+    Identity(Identity),
+    Username(String),
+}
+
+
+// Convenience functions for common use cases (now just wrappers)
+pub fn get_username_by_id(ctx: &ReducerContext, id: PlayerAccountId) -> String {
+    get_player_account(ctx, PlayerAccountLookup::Id(id))
+        .map(|account| account.get_username().to_string())
+        .unwrap_or_default()
+}
+
+pub fn get_username_by_identity(ctx: &ReducerContext, identity: Identity) -> String {
+    get_player_account(ctx, PlayerAccountLookup::Identity(identity))
+        .map(|account| account.get_username().to_string())
+        .unwrap_or_default()
+}
+
+pub fn get_identity_by_username(ctx: &ReducerContext, username: String) -> Identity {
+    get_player_account(ctx, PlayerAccountLookup::Username(username))
+        .map(|account| account.identity)
+        .unwrap_or_default()
+}
+
+pub fn does_player_account_exist(ctx: &ReducerContext, identity: Identity) -> bool {
+    let dsl = dsl(ctx);
+    dsl.get_player_account_by_identity(&identity).is_ok()
+}
+
+/// private Fns ///
 
 
 /// Creates a new PlayerAccount and OnlinePlayer record for the given identity and username.
@@ -386,7 +408,7 @@ pub fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity
     let dsl = dsl(ctx);
 
     // Validate username
-    let username = validate_name(username)?;
+    let username = validate_username(username)?;
 
     // Check if identity or username already exists
     if dsl.get_player_account_by_identity(&identity).is_ok() {
@@ -413,9 +435,19 @@ pub fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity
     Ok((player_account, online_player))
 }
 
-/// Takes a name and checks if it's acceptable as a user's name.
-fn validate_name(username: String) -> Result<String, String> {
-    let trimmed = username.trim();
+/// Takes a username and checks if it's acceptable as a user's name.
+/// Validates a username string for use as a player's name.
+/// 
+/// # Arguments
+/// * `username` - The username string to validate.
+/// 
+/// # Returns
+/// * `Ok(String)` - The trimmed and validated username if valid.
+/// * `Err(String)` - An error message describing why the username is invalid (e.g., empty, too long, or contains invalid characters).
+fn validate_username(username: String) -> Result<String, String> {
+    use unicode_normalization::UnicodeNormalization;
+    let normalized = username.nfkc().collect::<String>().to_lowercase();
+    let trimmed = normalized.trim();
     if trimmed.is_empty() {
         return Err("Username cannot be empty".to_string());
     }
@@ -423,23 +455,27 @@ fn validate_name(username: String) -> Result<String, String> {
         return Err("Username must be 32 characters or less".to_string());
     }
     if !trimmed.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
-        return Err("Username contains invalid characters (allowed: a-z, A-Z, 0-9, _, -)".to_string());
+        return Err("Username contains invalid characters. Only ASCII letters, numbers, underscores (_), and hyphens (-) are allowed.".to_string());
     }
-    Ok(trimmed.to_string())
+    Ok(trimmed.to_owned())
 }
 
 
 fn move_player_to_offline(ctx: &ReducerContext) {
     let dsl = dsl(ctx);
+    
+    // First check if the player is currently online
     let online_player: Result<OnlinePlayer, spacetimedsl::SpacetimeDSLError> = dsl.get_online_player_by_identity(&ctx.sender);
-
-    if online_player.is_err() {
-        log::warn!("Player identity [{}] is not online", ctx.sender);
-        return;
-    }
-    else {
+    if online_player.is_ok() {
+        // Player is online, move them to offline
         let player_record = online_player.unwrap();
-        dsl.create_offline_player(player_record.get_id(), player_record.identity).expect("Failed to create offline player");
+        match dsl.create_offline_player(player_record.get_id(), player_record.identity) {
+            Ok(_) => {},
+            Err(e) => {
+                log::error!("Failed to create offline player: {:?}", e);
+                return;
+            }
+        }
         match dsl.delete_online_player_by_id(player_record.get_id()) {
             Ok(_) => {},
             Err(e) => {
@@ -448,12 +484,40 @@ fn move_player_to_offline(ctx: &ReducerContext) {
         }
 
         log_player_action_audit(
-                ctx,
-                &format!("Player [{}] (Identity: [{}]) logged out", player_record.get_id(), player_record.identity)
-                );
+            ctx,
+            &format!("Player [{}] (Identity: [{}]) logged out", player_record.get_id(), player_record.identity)
+        );
+    } else {
+        // Player is not online, check if they're a guest user
+        let guest_user = dsl.get_guest_user_by_identity(&ctx.sender);
+        
+        if guest_user.is_ok() {
+            // Remove the guest user record
+            match dsl.delete_guest_user_by_identity(&ctx.sender) {
+                Ok(_) => {
+                    log::debug!("Guest user [{}] disconnected and removed", ctx.sender);
+                },
+                Err(e) => {
+                    log::error!("Failed to delete guest user [{}]: {:?}", ctx.sender, e);
+                }
+            }
+        } else {
+            log::warn!("Player identity [{}] is neither online nor a guest", ctx.sender);
+        }
     }
-
-
+    
+    // RACE CONDITION FIX: Remove identity from authentication queue if present
+    // This prevents the scheduled reducer from processing a disconnected player
+    {
+        let mut identities = IDENTITIES.lock().unwrap();
+        let original_len = identities.len();
+        identities.retain(|&identity| identity != ctx.sender);
+        let removed_count = original_len - identities.len();
+        
+        if removed_count > 0 {
+            log::warn!("Removed {} pending authentication entries for disconnected player [{}]", removed_count, ctx.sender);
+        }
+    }
 }
 
 fn move_player_to_online(ctx: &ReducerContext) {
@@ -466,7 +530,10 @@ fn move_player_to_online(ctx: &ReducerContext) {
     }
     else {
         let player_record = offline_player.unwrap();
-        dsl.create_online_player(player_record.get_id(), player_record.identity).expect("Failed to create online player");
+        if let Err(e) = dsl.create_online_player(player_record.get_id(), player_record.identity) {
+            log::error!("Failed to create online player: {:?}", e);
+            return;
+        }
         match dsl.delete_offline_player_by_id(player_record.get_id()) {
             Ok(_) => {},
             Err(e) => {
@@ -478,5 +545,6 @@ fn move_player_to_online(ctx: &ReducerContext) {
                 ctx,
                 &format!("Player [{}] (Identity: [{}]) logged in", player_record.get_id(), player_record.identity)
                 );
+        log::info!("Player [{}] moved to online.", ctx.sender);
     }
 }

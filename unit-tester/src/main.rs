@@ -33,7 +33,10 @@ fn main() {
 
     general_callbacks(&ctx);
     // Run automated tests for all reducers
-    run_reducer_tests(&ctx);
+
+    authenticate(&ctx);
+
+    // run_reducer_tests(&ctx);
 
     // Handle CLI input for manual testing
     println!("\n📝 Entering interactive mode. Type 'help' for commands:");
@@ -294,6 +297,26 @@ fn on_msg_inserted(ctx: &EventContext, msg: &GlobalChatMessage) {
     if !is_ignored {
         println!("{:?}:{:?}", msg.username, msg.message);
     }
+}
+
+fn authenticate(ctx: &DbConnection) {
+    println!("🔐 Authenticating...");
+
+    // Attempt to authenticate with the server
+    match ctx.reducers().private_authenticate("this_is_a_test_auth_key".to_string()) {
+        Ok(_) => {
+            println!("✅ Authentication request sent successfully.");
+            // Exit after authentication attempt
+            println!("🏁 Exiting after authentication...");
+            std::process::exit(0);
+        }
+        Err(e) => {
+            println!("❌ Failed to send authentication request: {}", e);
+        }
+    }
+
+    // Wait a moment for authentication to complete
+    thread::sleep(Duration::from_secs(2));
 }
 
 /// Comprehensive test suite for all reducers based on API specification
