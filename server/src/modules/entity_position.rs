@@ -1,4 +1,3 @@
-use log::info;
 use spacetimedb::{table, ReducerContext, Timestamp };
 use spacetimedsl::{ dsl };
 
@@ -108,7 +107,7 @@ pub fn update_my_position(ctx: &ReducerContext, entity: Entity, new_position: En
             }
         }
         Err(_) => {
-            info!("Entity not found for position update: {:?}", entity.get_id());
+            log::info!("Entity not found for position update: {:?}", entity.get_id());
             return Err("Entity not found".to_string());
         }
     }

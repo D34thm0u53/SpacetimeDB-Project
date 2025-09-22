@@ -17,7 +17,7 @@ fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
     if let Some(roles) = dsl.get_role_by_user_identity(&ctx.sender) {
         roles.is_game_admin || roles.is_server_administrator
     } else {
-        log::warn!("User: {:?}, attempted to run admin tools.", ctx.sender);
+        log::warn!("SECURITY: User {:?} attempted to run admin tools", ctx.sender);
         false
     }
 }
@@ -30,7 +30,7 @@ pub fn cleanup_inactive_players(ctx: &ReducerContext) {
         log_player_action_audit(ctx, &format!("Unauthorized attempt of admin tool: Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender));
 
         // Log unauthorized access attempt
-        log::warn!("Unauthorized attempt of admin tool: Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender);
+        log::warn!("SECURITY: Unauthorized admin tool attempt - Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender);
         return;
     }
 

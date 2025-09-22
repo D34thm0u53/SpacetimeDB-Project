@@ -109,7 +109,7 @@ pub fn ignore_player(ctx: &ReducerContext, target_identity: Identity) -> Result<
             dsl.create_player_ignore_pair(ctx.sender, target_identity)
                 .map_err(|e| format!("Failed to create ignore relationship: {:?}", e))?;
             
-            log::info!("Player {} ignored player {}", ctx.sender, target_identity);
+            log::debug!("Player {} ignored player {}", ctx.sender, target_identity);
             Ok(())
         }
         Err(e) => {
@@ -135,7 +135,7 @@ pub fn unignore_player(ctx: &ReducerContext, target_identity: Identity) -> Resul
             dsl.delete_player_ignore_pair_by_ignorer_and_ignored(&ctx.sender, &target_identity)
                 .map_err(|e| format!("Failed to delete ignore relationship: {:?}", e))?;
 
-            log::info!("Player {} unignored player {}", ctx.sender, target_identity);
+            log::debug!("Player {} unignored player {}", ctx.sender, target_identity);
             Ok(())
         }
         Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {

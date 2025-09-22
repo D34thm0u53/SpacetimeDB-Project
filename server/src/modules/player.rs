@@ -109,7 +109,7 @@ pub fn process_authenticated_users(ctx: &ReducerContext, _args: AuthProcessSched
         return Ok(()); // Nothing to process
     }
 
-    log::info!("Processing {} authenticated identities", identities.len());
+    log::debug!("Processing {} authenticated identities", identities.len());
     
     // Process each identity
     let identities_to_process: Vec<Identity> = identities.drain(..).collect();
@@ -117,7 +117,7 @@ pub fn process_authenticated_users(ctx: &ReducerContext, _args: AuthProcessSched
     for identity in identities_to_process {
         match process_authenticated_identity(ctx, identity) {
             Ok(_) => {
-                log::info!("Successfully processed authenticated identity: {}", identity);
+                log::debug!("Successfully processed authenticated identity: {}", identity);
             },
             Err(e) => {
                 log::error!("Failed to process authenticated identity {}: {}", identity, e);
@@ -146,7 +146,7 @@ fn process_authenticated_identity(ctx: &ReducerContext, identity: Identity) -> R
     // Remove from guest users if exists
     if let Ok(_guest_user) = dsl.get_guest_user_by_identity(&identity) {
         match dsl.delete_guest_user_by_identity(&identity) {
-            Ok(_) => log::info!("Removed guest user for identity: {}", identity),
+            Ok(_) => log::debug!("Removed guest user for identity: {}", identity),
             Err(e) => log::warn!("Failed to remove guest user for {}: {:?}", identity, e),
         }
     }
@@ -157,15 +157,15 @@ fn process_authenticated_identity(ctx: &ReducerContext, identity: Identity) -> R
                 let default_username: String = identity.to_string().chars().take(28).collect();
                 match create_player_account_and_online(ctx, identity, default_username) {
                     Ok((player_account, online_player)) => {
-                        log::info!("Created new PlayerAccount: {:?}", player_account);
-                        log::info!("Created new OnlinePlayer: {:?}", online_player);
+                        log::debug!("Created new PlayerAccount: {:?}", player_account);
+                        log::debug!("Created new OnlinePlayer: {:?}", online_player);
                     },
                     Err(e) => {
                         log::error!("Failed to create player account: {}", e);
                     }
                 }
             } else {
-                log::info!("Player account already exists for identity [{}]", ctx.sender);
+                log::debug!("Player account already exists for identity [{}]", identity);
                 move_player_to_online(ctx)
             }
     
@@ -313,13 +313,13 @@ pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), Stri
 ///   1 = connect (player joins as guest)
 ///   2 = disconnect (player leaves)
 pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_type: u8 ) {
-    log::info!("Handling event [{}] for player: [{}]", connection_event_type, ctx.sender);
+    log::debug!("Handling event [{}] for player: [{}]", connection_event_type, ctx.sender);
     match connection_event_type {
         1 => { // connection event
             log::debug!("Player [{}] connected as guest", ctx.sender);
             match connect_as_guest(ctx) {
                 Ok(guest_user) => {
-                    log::info!("Created new GuestUser: {:?}", guest_user);
+                    log::debug!("Created new GuestUser: {:?}", guest_user);
                 },
                 Err(e) => {
                     log::error!("Failed to create guest user: {}", e);
@@ -417,12 +417,12 @@ pub fn create_player_account_and_online(ctx: &ReducerContext, identity: Identity
     if dsl.get_player_account_by_username(&username).is_ok() {
         return Err("Username already taken".to_string());
     }
-    log::info!("Creating PlayerAccount for identity [{}] with username [{}]", identity, username);
+    log::debug!("Creating PlayerAccount for identity [{}] with username [{}]", identity, username);
     // Create PlayerAccount
     let player_account = dsl.create_player_account(identity.clone(), &username)
         .map_err(|e| format!("Failed to create PlayerAccount: {:?}", e))?;
 
-    log::info!("Created PlayerAccount: {:?}", player_account);
+    log::debug!("Created PlayerAccount: {:?}", player_account);
     // Create OnlinePlayer record
     let online_player = dsl.create_online_player(player_account.get_id(), player_account.identity)
         .map_err(|e| format!("Failed to create OnlinePlayer: {:?}", e))?;
@@ -525,7 +525,7 @@ fn move_player_to_online(ctx: &ReducerContext) {
     let offline_player = dsl.get_offline_player_by_identity(&ctx.sender);
 
     if offline_player.is_err() {
-        log::warn!("Player identity [{}] is not online", ctx.sender);
+        log::warn!("Player identity [{}] is not offline", ctx.sender);
         return;
     }
     else {
@@ -545,6 +545,6 @@ fn move_player_to_online(ctx: &ReducerContext) {
                 ctx,
                 &format!("Player [{}] (Identity: [{}]) logged in", player_record.get_id(), player_record.identity)
                 );
-        log::info!("Player [{}] moved to online.", ctx.sender);
+        log::debug!("Player [{}] moved to online.", ctx.sender);
     }
 }

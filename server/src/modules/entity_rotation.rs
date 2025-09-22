@@ -1,4 +1,3 @@
-use log::info;
 use spacetimedb::{table, ReducerContext };
 use spacetimedsl::{ dsl };
 
@@ -71,7 +70,7 @@ pub fn update_my_rotation(ctx: &ReducerContext, entity: Entity, new_rotation: En
             }
         }
         Err(_) => {
-            info!("Entity not found for rotation update: {:?}", entity.get_id());
+            log::info!("Entity not found for rotation update: {:?}", entity.get_id());
             return Err("Entity not found".to_string());
         }
     }

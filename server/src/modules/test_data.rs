@@ -21,8 +21,8 @@ pub fn build_mock_data(ctx: &ReducerContext, mock_identity: Identity, mock_usern
 
     match create_player_account_and_online(ctx, mock_identity, mock_username) {
         Ok((player_account, online_player)) => {
-            log::info!("Created new PlayerAccount: {:?}", player_account);
-            log::info!("Created new OnlinePlayer: {:?}", online_player);
+            log::debug!("Created new PlayerAccount: {:?}", player_account);
+            log::debug!("Created new OnlinePlayer: {:?}", online_player);
             Ok(())
         },
         Err(e) => {

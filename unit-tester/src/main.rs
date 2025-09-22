@@ -306,9 +306,6 @@ fn authenticate(ctx: &DbConnection) {
     match ctx.reducers().private_authenticate("this_is_a_test_auth_key".to_string()) {
         Ok(_) => {
             println!("✅ Authentication request sent successfully.");
-            // Exit after authentication attempt
-            println!("🏁 Exiting after authentication...");
-            std::process::exit(0);
         }
         Err(e) => {
             println!("❌ Failed to send authentication request: {}", e);
