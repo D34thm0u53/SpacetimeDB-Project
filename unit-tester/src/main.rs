@@ -103,20 +103,7 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
 
 fn general_callbacks(ctx: &DbConnection) {
 
-    let _mock_data_callback_id = ctx.reducers().on_build_mock_data(|ctx, mock_identity, mock_username| {
-        match &ctx.event.status {
-            spacetimedb_sdk::Status::Committed => {
-                println!("✅ Mock player_account created: Identity: {:?}, Username: {}", mock_identity, mock_username);
-            }
-            spacetimedb_sdk::Status::Failed(err) => {
-                println!("❌ Failed to ignore player: {}", err);
-            }
-            spacetimedb_sdk::Status::OutOfEnergy => {
-                println!("⚡ Out of energy to ignore player");
-            }
-        }
-    });
-
+    
     let _apply_damage_callback_id = ctx.reducers().on_apply_damage(|ctx, victim, damage| {
         match &ctx.event.status {
             spacetimedb_sdk::Status::Committed => {
@@ -392,7 +379,7 @@ fn create_mock_data(ctx: &DbConnection, username: String)-> (Identity, String) {
     println!("");
 
     println!(" 🏗️ Generating a Mock User");
-    ctx.reducers().build_mock_data(mock_identity, username.to_string()).expect("Failed to get mock identity");
+    //ctx.reducers().build_mock_data(mock_identity, username.to_string()).expect("Failed to get mock identity");
     thread::sleep(Duration::from_millis(500));
     println!("");
     
@@ -414,7 +401,7 @@ fn test_chat_system(ctx: &DbConnection) {
     test_send_private_chat(ctx, &mock_username, "This is a private test message");
     thread::sleep(Duration::from_millis(500));
 
-    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
+    //let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
     println!("<<   Chat system tests completed\n");
 }
 
@@ -440,7 +427,7 @@ fn test_ignore_system(ctx: &DbConnection) {
     thread::sleep(Duration::from_millis(500));
     println!("");
 
-    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
+    //let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
     println!("<<   Player ignore tests completed\n");
 }
 
@@ -475,7 +462,7 @@ fn test_entity_system(ctx: &DbConnection) {
     println!("");
     
 
-    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
+    //let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
     println!("<<   Entity system tests completed\n");
 }
 
@@ -500,7 +487,7 @@ fn test_combat_system(ctx: &DbConnection) {
     test_apply_damage(ctx, player_account.id, 1500);
     thread::sleep(Duration::from_millis(500));
     println!("");
-    let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
+    //let _ = ctx.reducers().clear_mock_data(mock_identity, mock_username);
     println!("<<   Combat system tests completed\n");
 }
 
