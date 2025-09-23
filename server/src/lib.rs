@@ -42,13 +42,12 @@ fn database_init(ctx: &ReducerContext) {
 #[reducer(client_connected)]
 // Called when a client connects to a SpacetimeDB database server
 fn client_connected(ctx: &ReducerContext) {
-    log::debug!("Client connected: {}", ctx.sender);
-    handle_player_connection_event(ctx, 1);
+    handle_player_connection_event(ctx, "connect");
 }
 
 #[reducer(client_disconnected)]
 // Called when a client disconnects from SpacetimeDB database server
 fn client_disconnected(ctx: &ReducerContext) {
-    handle_player_connection_event(ctx, 2);
+    handle_player_connection_event(ctx, "disconnect");
 }
 
