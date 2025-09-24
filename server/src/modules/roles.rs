@@ -51,7 +51,7 @@ pub enum RoleType {
 pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, requested_role: RoleType) -> Result<(), String> {
     if !try_server_or_dev(ctx) {
         if !is_admin_tools_authorized(ctx) {
-            log::warn!("Unauthorized attempt to set roles by {:?}", ctx.sender);
+            log::warn!("SECURITY: Unauthorized attempt to set roles by {:?}", ctx.sender);
             return Err("Unauthorized access".to_string());
         }
     }
@@ -118,8 +118,8 @@ pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, request
     // Log the role change in the audit table, recording who performed the change
     dsl.create_roles_audit(ctx.sender.clone(), target_identity, previous_role.clone(), requested_role.clone())?;
     
-    log::info!(
-        "[Reducer: set_player_roles] Role updated for user {} from {:?} to {:?} by {} (action: set_player_roles)",
+    log::warn!(
+        "Role updated for user {} from {:?} to {:?} by {} (requires monitoring)",
         target_identity, previous_role, requested_role, ctx.sender
     );
 

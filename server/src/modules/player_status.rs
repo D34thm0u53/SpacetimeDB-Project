@@ -28,7 +28,7 @@ impl PlayerStatus {
 /// Damage is absorbed by shield first, then by base_health. If both reach zero, the player is considered dead.
 #[spacetimedb::reducer]
 pub fn apply_damage(ctx: &ReducerContext, victim: crate::modules::player::PlayerAccountId, damage: u32) {
-    log::info!("Applying {} damage to player {}", damage, victim);
+    log::debug!("Applying {} damage to player {}", damage, victim);
     
     // Get DSL context
     let dsl = dsl(ctx);
@@ -84,7 +84,7 @@ pub fn apply_damage(ctx: &ReducerContext, victim: crate::modules::player::Player
     if let Err(e) = dsl.update_player_status_by_id(status_record) {
         log::error!("Failed to update player status for player {}: {:?}", victim, e);
     } else {
-        log::info!("Successfully applied {} damage to player {} (final health: {}, shield: {})", 
+        log::debug!("Successfully applied {} damage to player {} (final health: {}, shield: {})", 
                   damage, victim, final_health, final_shield);
     }
 }

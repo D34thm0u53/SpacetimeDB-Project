@@ -24,7 +24,7 @@ pub fn try_developer_only(ctx: &ReducerContext) -> bool {
         return true;
     }
     else {
-        log::warn!("Non-developer user attempted developer-only action: {}", ctx.sender);
+        log::warn!("SECURITY: Non-developer user {} attempted developer-only action", ctx.sender);
         return false;
     }
 }
@@ -34,7 +34,7 @@ pub fn try_server_only(ctx: &ReducerContext) -> bool {
         return true;
     }
     else {
-        log::warn!("Non-server user attempted server-only action: {}", ctx.sender);
+        log::warn!("SECURITY: Non-server user {} attempted server-only action", ctx.sender);
         return false;
     }
 }

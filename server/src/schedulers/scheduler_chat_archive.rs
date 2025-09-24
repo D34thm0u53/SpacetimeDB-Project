@@ -1,5 +1,5 @@
 use std::{time::Duration};
-use spacetimedb::{ReducerContext};
+use spacetimedb::{table, ReducerContext};
 use spacetimedsl::{dsl};
 
 use crate::modules::chat::*;
@@ -7,7 +7,7 @@ use crate::modules::chat::*;
 
 
 #[dsl(plural_name = chat_archive_timers)]
-#[spacetimedb::table(name = chat_archive_timer, scheduled(archive_old_global_chat_messages))]
+#[table(name = chat_archive_timer, scheduled(archive_old_global_chat_messages))]
 pub struct ChatArchiveTimer {
     #[primary_key]
     #[auto_inc]

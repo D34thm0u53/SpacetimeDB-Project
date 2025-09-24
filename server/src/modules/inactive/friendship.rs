@@ -49,7 +49,7 @@ pub fn send_friend_request(ctx: &ReducerContext, receiver: String) -> Result<(),
                     // Handle the Result to avoid unused_must_use warning
                     match dsl.update_friendship_by_id(friendship_record) {
                         Ok(_) => {
-                            log::info!("Successfully updated friendship status to Active");
+                            log::debug!("Successfully updated friendship status to Active");
                         }
                         Err(_) => {
                             log::warn!("Failed to update friendship status to Active");

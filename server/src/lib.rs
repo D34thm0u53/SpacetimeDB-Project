@@ -7,6 +7,7 @@ use log::*;
 pub mod modules;
 use modules::player::*;
 use modules::roles::*;
+use modules::*;
 
 pub mod schedulers;
 use schedulers::*;
@@ -29,6 +30,9 @@ fn database_init(ctx: &ReducerContext) {
 
     scheduler_chat_archive::init(ctx)
         .expect("Failed to initialize chat archive timer");
+
+    player::init(ctx)
+        .expect("Failed to initialize chat archive timer");
     // Initialize the database
 
     // Initialize default weapons
@@ -38,13 +42,12 @@ fn database_init(ctx: &ReducerContext) {
 #[reducer(client_connected)]
 // Called when a client connects to a SpacetimeDB database server
 fn client_connected(ctx: &ReducerContext) {
-    log::info!("Client connected: {}", ctx.sender);
-    handle_player_connection_event(ctx, 1);
+    handle_player_connection_event(ctx, "connect");
 }
 
 #[reducer(client_disconnected)]
 // Called when a client disconnects from SpacetimeDB database server
 fn client_disconnected(ctx: &ReducerContext) {
-    handle_player_connection_event(ctx, 2);
+    handle_player_connection_event(ctx, "disconnect");
 }
 

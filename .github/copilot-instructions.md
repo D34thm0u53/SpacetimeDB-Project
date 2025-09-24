@@ -87,3 +87,11 @@ spacetime publish server/target/wasm32-unknown-unknown/release/Mouse-Game.wasm
 - Use `.expect()` carefully in reducers - failures rollback entire transaction
 - Client subscriptions need manual setup for each table you want to cache locally
 - SpacetimeDSL requires specific attribute combinations - follow existing patterns
+
+## Logging Standards
+- **ERROR**: System failures, database errors, critical issues that require attention
+- **WARN**: Security violations (prefix with "SECURITY:"), failed operations, unexpected states
+- **INFO**: Rare or important events (role changes, system initialization)
+- **DEBUG**: Routine operations (player connections, entity updates, successful transactions)
+- **TRACE**: Detailed flow control and validation attempts
+- Avoid logging every successful operation at INFO level to prevent log bloat
