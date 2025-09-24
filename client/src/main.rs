@@ -200,7 +200,7 @@ fn user_input_loop(ctx: &DbConnection) {
                 }
             }
             _ => {
-                println!("❓ Unknown command. Type 'help' for available commands.");
+                println!("❓ Unknown command.");
             }
         }
     }

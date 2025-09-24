@@ -1,5 +1,5 @@
 use std::{time::Duration};
-use spacetimedb::{table, Identity, ReducerContext, Timestamp};
+use spacetimedb::{table, ReducerContext};
 use spacetimedsl::{dsl};
 
 use crate::modules::chat::*;

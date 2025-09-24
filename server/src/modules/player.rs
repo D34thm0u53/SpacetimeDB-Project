@@ -136,7 +136,7 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
 
     // Once per minute, check if we have over our target for global chat messages
     dsl.create_auth_process_schedule(
-        spacetimedb::ScheduleAt::Interval(Duration::from_millis(500).into()),
+        spacetimedb::ScheduleAt::Interval(Duration::from_millis(2000).into()),
         0,
     )?;
     Ok(())
