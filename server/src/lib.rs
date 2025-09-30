@@ -1,27 +1,24 @@
 use spacetimedb::ReducerContext;
 use spacetimedb::{reducer};
 use spacetimedsl::dsl;
-use log::*;
+
 
 
 pub mod modules;
 use modules::player::*;
-use modules::roles::*;
 use modules::*;
 
 pub mod schedulers;
 use schedulers::*;
 
-use modules::common::*;
 
 
 #[reducer(init)]
 // Called when a client connects to a SpacetimeDB database server
 fn database_init(ctx: &ReducerContext) {
     let dsl = dsl(ctx);
-    // initi the owner table
-    create_owner_record(ctx)
-        .expect("Failed to create owner record");
+    // init the owner table
+    
     dsl.create_auth_key("primary_auth","this_is_a_test_auth_key")
         .expect("Failed to create auth key");
 

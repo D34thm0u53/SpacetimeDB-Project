@@ -20,7 +20,7 @@ fn main() {
 
     // Subscribe to SQL queries in order to construct a local partial replica of the database.
     subscribe_to_tables(&ctx);
-
+    register_callbacks(&ctx);
     // Spawn a thread, where the connection will process messages and invoke callbacks.
     let handle = ctx.run_threaded();
 
@@ -29,7 +29,7 @@ fn main() {
 
     // authenticate with the server
     authenticate(&ctx);
-
+    
     // run_reducer_tests(&ctx);
 
     // Handle CLI input for manual testing
@@ -52,7 +52,7 @@ fn connect_to_db() -> DbConnection {
         // If the user has previously connected, we'll have saved a token in the `on_connect` callback.
         // In that case, we'll load it and pass it to `with_token`,
         // so we can re-authenticate as the same `Identity`.
-        .with_token(creds_store().load().expect("Error loading credentials"))
+        // .with_token(creds_store().load().expect("Error loading credentials"))
         // Set the database name we chose when we called `spacetime publish`.
         .with_module_name(DB_NAME)
         // Set the URI of the SpacetimeDB host that's running our database.
@@ -96,8 +96,6 @@ fn on_disconnected(_ctx: &ErrorContext, err: Option<Error>) {
 }
 
 fn general_callbacks(ctx: &DbConnection) {
-
-    
     let _apply_damage_callback_id = ctx.reducers().on_apply_damage(|ctx, victim, damage| {
         match &ctx.event.status {
             spacetimedb_sdk::Status::Committed => {
@@ -113,22 +111,30 @@ fn general_callbacks(ctx: &DbConnection) {
     });
 }
 
-
 fn subscribe_to_tables(ctx: &DbConnection) {
     ctx.subscription_builder()
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
-        .subscribe(["SELECT * FROM global_chat_message"]);
-    ctx.subscription_builder()
-        .on_applied(on_sub_applied)
-        .on_error(on_sub_error)
-        .subscribe(["SELECT * FROM player_account "]);
+        .subscribe(["SELECT * FROM direct_message"]);
 }
-
 
 fn on_sub_applied(_ctx: &SubscriptionEventContext) {
 
 }
+
+
+fn register_callbacks(ctx: &DbConnection) {
+    ctx.db.direct_message().on_insert(on_msg_inserted);
+}
+
+fn on_msg_inserted(ctx: &EventContext, msg: &DirectMessage) {
+    // Get the current user's id (assuming it's available via ctx.identity())
+    let my_id = ctx.identity();
+
+    // Check if the message sender is ignored by the current user
+    println!("Message via subscription {:?}:{:?}", msg.sender_id, msg.message);
+}
+
 
 /// Or `on_error` callback:
 /// print the error, then exit the process.
@@ -199,6 +205,37 @@ fn user_input_loop(ctx: &DbConnection) {
                     println!("❌ Name cannot be empty");
                 }
             }
+            ">" =>{
+                print!("Enter message: ");
+                io::stdout().flush().unwrap();
+
+                let mut message = String::new();
+                if io::stdin().read_line(&mut message).unwrap() == 0 {
+                    break; // EOF
+                }
+
+                let message = message.trim();
+                if !message.is_empty() {
+                    match ctx.reducers().send_private_chat("stdb_admin".to_string(), message.to_string()) {
+                        Ok(_) => println!("📩 DM sent to player 'stdb_admin': '{}'", message),
+                        Err(e) => println!("❌ Failed to send DM: {}", e),
+                    }
+                } else {
+                    println!("❌ Message cannot be empty");
+                }
+
+                // let message = message.trim();
+                // if !message.is_empty() {
+                //     match ctx.reducers().send_private_chat("c200cb4eb9c5a3cc8133e5c13aef".to_string(), message.to_string()) {
+                //         Ok(_) => println!("📩 DM sent to player 'c200cb4eb9c5a3cc8133e5c13aef': '{}'", message),
+                //         Err(e) => println!("❌ Failed to send DM: {}", e),
+                //     }
+                // } else {
+                //     println!("❌ Message cannot be empty");
+                // }
+
+            }
+
             _ => {
                 println!("❓ Unknown command.");
             }
@@ -207,3 +244,5 @@ fn user_input_loop(ctx: &DbConnection) {
     
     println!("👋 Goodbye!");
 }
+
+

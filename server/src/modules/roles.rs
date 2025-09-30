@@ -10,6 +10,7 @@ use crate::modules::common::*;
 #[dsl(plural_name = roles)]
 #[table(name = role, public)]
 pub struct Role {
+    #[auto_inc]
     #[primary_key]
     #[create_wrapper]
     id: u32,
@@ -21,6 +22,8 @@ pub struct Role {
     pub is_game_admin: bool,
     pub is_server_administrator: bool, 
 }
+
+
 
 #[dsl(plural_name = roles)]
 #[table(name = roles_audit, private)]
@@ -38,116 +41,12 @@ pub struct RolesAudit {
 
 #[derive(SpacetimeType, Debug, Clone, PartialEq, Eq,)]
 pub enum RoleType {
-    User,
+    GuestUser,
     TrustedUser,
     GameAdmin,
     ServerAdmin,
 }
 
-// Admin Tools
-
-#[reducer]
-/// Allows game admins and server admins to set another player's roles.
-pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, requested_role: RoleType) -> Result<(), String> {
-    if !try_server_or_dev(ctx) {
-        if !is_admin_tools_authorized(ctx) {
-            log::warn!("SECURITY: Unauthorized attempt to set roles by {:?}", ctx.sender);
-            return Err("Unauthorized access".to_string());
-        }
-    }
-    
-    
-    let dsl = dsl(ctx);
-
-    // Get target account and handle errors properly
-    let target_account = dsl.get_player_account_by_identity(&target_identity)?;
-
-
-    // Fetch or create the user's role profile
-    let mut user_roles_profile = match dsl.get_role_by_user_id(&target_account.get_id()) {
-        Ok(existing_role) => existing_role,
-        Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
-            // Create a default role if none exists
-            dsl.create_role(
-                0,
-                target_account.get_id(),
-                false,
-                false,
-                false
-            )?
-        }
-        Err(e) => {
-            log::warn!("Failed to retrieve user roles for {:?}: {:?}", target_identity, e);
-            return Err(format!("Failed to retrieve role: {:?}", e));
-        }
-    };
-
-    let previous_role = get_role_type(&user_roles_profile);
-
-    // Update the target player's roles based on requested role
-    match requested_role {
-        RoleType::User => {
-            user_roles_profile.is_trusted_user = false;
-            user_roles_profile.is_game_admin = false;
-            user_roles_profile.is_server_administrator = false;
-        },
-        RoleType::TrustedUser => {
-            user_roles_profile.is_trusted_user = true;
-            user_roles_profile.is_game_admin = false;
-            user_roles_profile.is_server_administrator = false;
-        },
-        RoleType::GameAdmin => {
-            // Game admins inherit trusted user permissions
-            user_roles_profile.is_trusted_user = true;
-            user_roles_profile.is_game_admin = true;
-            user_roles_profile.is_server_administrator = false;
-        },
-        RoleType::ServerAdmin => {
-            // Server admins inherit all permissions
-            user_roles_profile.is_trusted_user = true;
-            user_roles_profile.is_game_admin = true;
-            user_roles_profile.is_server_administrator = true;
-        }
-    }
-
-    // Update the role in the database
-    dsl.update_role_by_user_id(user_roles_profile)
-        .map_err(|e| format!("Failed to update user roles: {:?}", e))?;
-
-
-    // Log the role change in the audit table, recording who performed the change
-    dsl.create_roles_audit(ctx.sender.clone(), target_identity, previous_role.clone(), requested_role.clone())?;
-    
-    log::warn!(
-        "Role updated for user {} from {:?} to {:?} by {} (requires monitoring)",
-        target_identity, previous_role, requested_role, ctx.sender
-    );
-
-    Ok(())
-}
-
-
-// Helper function to check if the caller is authorized to use admin tools
-fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
-    let dsl = dsl(ctx);
-    let mut authorised = false;
-
-    let target_user = dsl.get_player_account_by_identity(&ctx.sender);
-
-    if target_user.is_ok() {
-        let target_user_role = dsl.get_role_by_user_id(target_user.unwrap().get_id());
-
-        if target_user_role.is_ok() {
-            let roles = target_user_role.unwrap();
-            if roles.is_game_admin || roles.is_server_administrator {
-                authorised = true;
-            }
-        }
-    }
-    return authorised
-}
-
-// Helper function to determine the RoleType from the Roles struct
 fn get_role_type(roles: &Role) -> RoleType {
     if roles.is_server_administrator {
         RoleType::ServerAdmin
@@ -156,6 +55,108 @@ fn get_role_type(roles: &Role) -> RoleType {
     } else if roles.is_trusted_user {
         RoleType::TrustedUser
     } else {
-        RoleType::User
+        RoleType::GuestUser
     }
 }
+
+impl Role {
+    fn update_role(&mut self, requested_role: &RoleType) {
+        // Update the target player's roles based on requested role
+        match requested_role {
+            RoleType::GuestUser => {
+                self.is_trusted_user = false;
+                self.is_game_admin = false;
+                self.is_server_administrator = false;
+            },
+            RoleType::TrustedUser => {
+                self.is_trusted_user = true;
+                self.is_game_admin = false;
+                self.is_server_administrator = false;
+            },
+            RoleType::GameAdmin => {
+                // Game admins inherit trusted user permissions
+                self.is_trusted_user = true;
+                self.is_game_admin = true;
+                self.is_server_administrator = false;
+            },
+            RoleType::ServerAdmin => {
+                // Server admins inherit all permissions
+                self.is_trusted_user = true;
+                self.is_game_admin = true;
+                self.is_server_administrator = true;
+            }
+        }
+    }
+    
+}
+
+
+// Create default roles for new users
+pub fn create_default_roles(dsl: &spacetimedsl::DSL, user_id: PlayerAccountId) -> Result<Role, spacetimedsl::SpacetimeDSLError> {
+    dsl.create_role(
+        user_id,
+        false, // is_trusted_user
+        false, // is_game_admin
+        false  // is_server_administrator
+    )
+}
+
+
+
+
+// Is the caller a game admin or server admin?
+fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
+    let dsl = dsl(ctx);
+
+    let requesting_user = dsl.get_player_account_by_identity(&ctx.sender);
+    if requesting_user.is_ok() {
+        let target_user_role = dsl.get_role_by_user_id(requesting_user.unwrap().get_id());
+
+        if target_user_role.is_ok() {
+            let roles = target_user_role.unwrap();
+            if roles.is_game_admin || roles.is_server_administrator {
+                return true;
+            }
+        }
+    }
+    return false
+}
+
+
+// Admin Tools
+#[reducer]
+/// Allows game admins and server admins to override another player's role.
+pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, requested_role: RoleType) -> Result<(), String> {
+    if !try_server_or_dev(ctx) {
+        if !is_admin_tools_authorized(ctx) {
+            log::warn!("SECURITY: Unauthorized attempt to set roles by {:?}", ctx.sender);
+            return Err("Unauthorized access".to_string());
+        }
+    }
+    
+    let dsl = dsl(ctx);
+
+    // Get target account and handle errors properly
+    let target_account: PlayerAccount = dsl.get_player_account_by_identity(&target_identity)?;
+    let mut user_roles_profile: Role = dsl.get_role_by_user_id(&target_account.get_id())?;
+    let previous_user_roles_profile = get_role_type(&user_roles_profile);
+
+    // Update the target player's roles based on requested role
+    user_roles_profile.update_role(&requested_role);
+
+    // Update the role in the database
+    dsl.update_role_by_user_id(user_roles_profile)
+        .map_err(|e| format!("Failed to update user roles: {:?}", e))?;
+
+    // Log the role change in the audit table, recording who performed the change
+    dsl.create_roles_audit(ctx.sender.clone(), target_identity, previous_user_roles_profile.clone(), requested_role.clone())?;
+    
+    log::warn!(
+        "Role updated for user {} from {:?} to {:?} by {} (requires monitoring)",
+        target_identity, previous_user_roles_profile, requested_role, ctx.sender
+    );
+
+    Ok(())
+}
+
+
