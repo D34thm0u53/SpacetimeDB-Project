@@ -1,7 +1,5 @@
 use spacetimedb::ReducerContext;
 use spacetimedb::{reducer};
-use spacetimedsl::dsl;
-
 
 
 pub mod modules;
@@ -16,21 +14,14 @@ use schedulers::*;
 #[reducer(init)]
 // Called when a client connects to a SpacetimeDB database server
 fn database_init(ctx: &ReducerContext) {
-    let dsl = dsl(ctx);
-    // init the owner table
-    
-    dsl.create_auth_key("primary_auth","this_is_a_test_auth_key")
-        .expect("Failed to create auth key");
-
     // scheduler_chunks::init(ctx)
     //     .expect("Failed to initialize chunk scheduler");
 
     scheduler_chat_archive::init(ctx)
         .expect("Failed to initialize chat archive timer");
 
-    player::init(ctx)
-        .expect("Failed to initialize chat archive timer");
     // Initialize the database
+    // Authentication is now handled by SpaceTimeAuth
 
     // Initialize default weapons
     // crate::modules::weapon::initialize_default_weapons(ctx);
