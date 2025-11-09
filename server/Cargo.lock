@@ -266,6 +266,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "itoa"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
+
+[[package]]
 name = "keccak"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -291,6 +297,12 @@ name = "log"
 version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
+
+[[package]]
+name = "memchr"
+version = "2.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
 
 [[package]]
 name = "mouse_game"
@@ -407,6 +419,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryu"
+version = "1.0.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
+
+[[package]]
 name = "scoped-tls"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -426,22 +444,44 @@ checksum = "56e6fa9c48d24d85fb3de5ad847117517440f6beceb7798af16b4a87d616b8d0"
 
 [[package]]
 name = "serde"
-version = "1.0.219"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f0e2c6ed6606019b4e29e69dbaba95b11854410e5347d525002456dbbb786b6"
+checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
+dependencies = [
+ "serde_core",
+]
+
+[[package]]
+name = "serde_core"
+version = "1.0.228"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
 dependencies = [
  "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.219"
+version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0276cf7f2c73365f7157c8123c21cd9a50fbbd844757af28ca1f5925fc2a00"
+checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
 dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.104",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.145"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "402a6f66d8c709116cf22f558eab210f5a50187f702eb4d7e5ef38d9a7f1c79c"
+dependencies = [
+ "itoa",
+ "memchr",
+ "ryu",
+ "serde",
+ "serde_core",
 ]
 
 [[package]]
@@ -480,9 +520,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb"
-version = "1.3.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cd00b22d3170c92858f448db222a135c6302e336f1729c17e77f634c7e9e849"
+checksum = "f1adc734a7fe7af5eb312c7ecab06b86853744a584bcb04f01cf90a4b5a93a9f"
 dependencies = [
  "bytemuck",
  "derive_more",
@@ -490,6 +530,7 @@ dependencies = [
  "log",
  "rand",
  "scoped-tls",
+ "serde_json",
  "spacetimedb-bindings-macro",
  "spacetimedb-bindings-sys",
  "spacetimedb-lib",
@@ -498,9 +539,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-bindings-macro"
-version = "1.3.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87dcccbad947dbecdb49f6c241762a78451344f04c1bdad023a3b1b5942238b2"
+checksum = "bc3401b34447ea1ebed7289710fca3fb0510eca21fdca0568b483ccdab43716f"
 dependencies = [
  "heck 0.4.1",
  "humantime",
@@ -512,18 +553,18 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-bindings-sys"
-version = "1.3.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "969e77710b67e7db3e86bb4e195ba325f5f288efd1bfd6b1997ca9c389d22b04"
+checksum = "55f0444b30253a89032e52482a257a16b5c6240edb20cb07ccbb8f61ee393325"
 dependencies = [
  "spacetimedb-primitives",
 ]
 
 [[package]]
 name = "spacetimedb-lib"
-version = "1.3.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e9b8d04af6da14e3b7cc79b4b88c1c309c994eeba6a97f298fd0cdc7f897209"
+checksum = "4a92d293f0949006422dd3db7513883fd37b39fb44e9eea0f2654638cf996db3"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -541,9 +582,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-primitives"
-version = "1.3.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0181dc495c66138755705e573f0e0a9a7024660f207ebd1e35d0a1f839813e84"
+checksum = "4f50d1579e9ad93ab9da8f12f355b98fee6a389badea2f6a6b1f6a963d4d49b1"
 dependencies = [
  "bitflags",
  "either",
@@ -553,9 +594,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-sats"
-version = "1.3.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e9700ea5d62401c05633ce86d369dbc4a73ec978ac7e347ab8563626ad01fbc"
+checksum = "834ad502a46ebcb5f2411bb877e8565e2dabfdf941a57271a3659e7ea70e937f"
 dependencies = [
  "anyhow",
  "arrayvec",
