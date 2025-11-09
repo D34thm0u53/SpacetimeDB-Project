@@ -1,292 +1,400 @@
----
-applyTo: '**'
----
-SpacetimeDSL
+# SpacetimeDSL
 
-SpacetimeDSL provides you a high-level Domain Specific Language (DSL) in Rust to interact in an ergonomic, more developer-friendly and type-safe way with the data in your SpacetimeDB instances.
+> Ergonomic Domain Specific Language for SpacetimeDB in Rust
 
-Try SpacetimeDSL for yourself, by adding it to your server modules Cargo.toml:
+SpacetimeDSL provides type-safe, developer-friendly abstractions over SpacetimeDB with automatic code generation for common patterns.
 
-# https://crates.io/crates/spacetimedsl Ergonomic DSL for SpacetimeDB
+## Quick Start
+
+```toml
+[dependencies]
 spacetimedsl = { version = "*" }
+```
 
-Get started by adding #[spacetimedsl::dsl] as well as it's helper attributes #[create_wrapper], #[use_wrapper],
-#[foreign_key] and #[referenced_by] to your structs with #[spacetimedb::table]!
+## Core Concepts
 
-If you've questions, consult the FAQ and if it's not answered there, you can find me in the SpacetimeDSL channel of the SpacetimeDB Discord Server.
-Vanilla SpacetimeDB
+### Basic Table Definition
 
-Let's start with a ordinary SpacetimeDB schema:
-
+```rust
+#[spacetimedsl::dsl(
+    plural_name = entities,
+    method(update = true, delete = true)
+)]
 #[spacetimedb::table(name = entity, public)]
 pub struct Entity {
     #[primary_key]
     #[auto_inc]
+    #[create_wrapper]
     id: u128,
-
-    created_at: spacetimedb::Timestamp,
+    
+    created_at: Timestamp,
+    modified_at: Option<Timestamp>,
 }
+```
 
-#[spacetimedb::table(name = position, public, index(name = x_y, btree(columns = [x, y])))]
-pub struct Position {
-    #[primary_key]
-    #[auto_inc]
-    id: u128,
+### Using the DSL
 
-    #[unique]
-    entity_id: u128,
-
-    x: i128,
-
-    y: i128,
-
-    modified_at: spacetimedb::Timestamp,
-}
-
-We have two tables:
-
-    The Entity table which holds no data per row except an unique machine-readable identifier and
-    The Position table which holds an entity_idand a x and y value per row.
-
-But even with this small data model, there are a few fundamental problems with vanilla SpacetimeDB:
-
-    If you want to create an Entity, you have to pass an Entity to the DB's insert/try_insert method, which means you have to create one first. However, there are sensible defaults for all columns, namely 0 for the id column (to get an automatically incremented id) and ctx.timestamp, which is the current timestamp – boilerplate code that could be avoided.
-
-    You are able to change the created_at value of an already created Entity and use the DB's update/try_update method to persist the data.
-
-    The fact that the second column of the Position table is called entity_id does not mean that you can only enter IDs of Entities there ...
-
-    ... and it certainly does not mean that these Entities actually exist ...
-
-    ... and that Positions are deleted when Entities are deleted.
-
-Based on the types of the x and y columns in the Position table, we could already guess that we are dealing with a tile-based 2D game.
-
-    Each tile should only be able to contain a maximum of one Entity — we have to check this ourselves every time we make changes to the Position table, as there are no unique multi-column indices.
-
-    In addition, we must change the modified_at column each time and store the correct data (ctx.timestamp) when we make changes to it.
-
-SpacetimeDB is a great technology, but it still has some weaknesses that prevent developers from utilizing its full potential — sometimes they even have to work against the database.
-SpacetimeDB with SpacetimeDSL
-
-Let's now have a look what happens when you're adding SpacetimeDSL to your tables...
-
-#[spacetimedsl::dsl(plural_name = entities)]         // Added
-#[spacetimedb::table(name = entity, public)]
-pub struct Entity {
-    #[primary_key]
-    #[auto_inc]
-    #[create_wrapper]                                // Added
-    #[referenced_by(path = crate, table = position)] // Added
-    id: u128,
-
-    created_at: spacetimedb::Timestamp,
-}
-
-#[spacetimedsl::dsl(plural_name = positions, unique_index(name = x_y))]                     // Added
-#[spacetimedb::table(name = position, public, index(name = x_y, btree(columns = [x, y])))]
-pub struct Position {
-    #[primary_key]
-    #[auto_inc]
-    #[create_wrapper]                                                                      // Added
-    id: u128,
-
-    #[unique]
-    #[use_wrapper(name = EntityId)]                                                        // Added
-    #[foreign_key(path = crate, table = entity, on_delete = Delete)]                       // Added
-    entity_id: u128,
-
-    x: i128,
-
-    y: i128,
-
-    modified_at: spacetimedb::Timestamp,
-}
-
-    For clarity, the rest of this documentation uses DB to refer to SpacetimeDB and DSL to refer to SpacetimeDSL.
-
-Looks like nothing much, but let's have a look what you can do now:
-The Create DSL method
-
+```rust
 #[spacetimedb::reducer]
-pub fn create_example(ctx: &spacetimedb::ReducerContext) -> Result<(), String> {
-    // Vanilla SpacetimeDB
-    use spacetimedb::Table;
+fn example(ctx: &ReducerContext) -> Result<(), String> {
+    let dsl = spacetimedsl::dsl(ctx);
+    
+    // Create with smart defaults
+    let entity = dsl.create_entity()?;
+    
+    // Get by ID
+    let entity = dsl.get_entity_by_id(&entity)?;
+    
+    // Update
+    let mut entity = dsl.get_entity_by_id(&entity)?;
+    entity.set_some_field(value);
+    dsl.update_entity_by_id(entity)?;
+    
+    // Delete
+    dsl.delete_entity_by_id(&entity)?;
+    
+    Ok(())
+}
+```
 
-    // Without the question mark it would return a
-    // Result<Entity, spacetimedb::TryInsertError<entity__TableHandle>>
-    let entity: Entity = ctx.db.entity().try_insert(
-        Entity {
-            id: 0,
-            created_at: ctx.timestamp,
-        }
-    )?;
+## Key Features
 
-    // SpacetimeDB with SpacetimeDSL
-    let dsl: spacetimedsl::DSL<'_> = spacetimedsl::dsl(ctx);
+### 1. Wrapper Types (Type Safety)
 
-    // Without the question mark it would return a Result<Entity, spacetimedsl::SpacetimeDSLError>
-    let entity: Entity = dsl.create_entity()?;
+Eliminates primitive obsession by wrapping column types:
 
+```rust
+#[primary_key]
+#[create_wrapper]            // Default name: EntityId (format: {TableName}{ColumnName})
+id: u128,
+
+#[create_wrapper(EntityID)]  // Custom name: EntityID
+id: u128,
+
+#[use_wrapper(EntityId)]     // Uses wrapper from same module
+entity_id: u128,
+
+#[use_wrapper(crate::entity::EntityId)]  // Uses wrapper from another module (supports full paths)
+entity_id: u128,
+```
+
+Naming Convention:
+
+- Default: `{singular_table_name_pascal_case}{column_name_pascal_case}`
+- Example: Table `entity`, column `id` → `EntityId`
+- Example: Table `user_profile`, column `obj_id` → `UserProfileObjId`
+
+Benefits:
+
+- Compile-time type checking prevents passing wrong IDs
+- Self-documenting code
+- Implements `Wrapper` trait with `new()` and `value()` methods
+
+Common Error:
+
+```
+The trait bound `WrapperType: From<NumericType>` is not satisfied.
+```
+
+This means you provided a raw numeric type (like `u128`) where a wrapper type is required. Solution:
+
+- Use wrapper types consistently in your API (including reducer arguments)
+- Don't manually create wrappers with `WrapperType::new(value)` except you wrap a `spacetimedb::Identity`.
+- Pass wrapper types or entities directly: `dsl.method(&entity)` or `dsl.method(entity.get_id())`
+
+### 2. Foreign Keys & Referential Integrity
+
+```rust
+// Referenced table
+#[dsl(plural_name = entities, method(update = true, delete = true))]
+pub struct Entity {
+    #[primary_key]
+    #[create_wrapper]
+    #[referenced_by(path = crate, table = position)]
+    id: u128,
+}
+
+// Referencing table
+#[dsl(plural_name = positions, method(update = true, delete = true))]
+pub struct Position {
+    #[primary_key]
+    #[create_wrapper]
+    id: u128,
+    
+    #[use_wrapper(EntityId)]
+    #[foreign_key(path = crate, table = entity, column = id, on_delete = Delete)]
+    entity_id: u128,
+}
+```
+
+OnDelete Strategies:
+
+- `Error` - Prevent deletion if referenced
+- `Delete` - Cascade delete referencing rows (requires `method(delete = true)` in `#[dsl]`)
+- `SetZero` - Set foreign key to 0 (requires public column, `method(update = true)` in `#[dsl]`)
+- `Ignore` - Allow dangling references (not recommended, except in audit tables)
+
+**⚠️ CRITICAL: SpacetimeDB Limitation**
+
+SpacetimeDB does NOT natively support foreign keys or referential integrity. SpacetimeDSL enforces referential integrity by checking before insert/update/delete, but this ONLY works if you:
+
+1. **Always use DSL methods** - Never call `ctx.db()` or `dsl.ctx().db()` mutating methods directly
+2. **Never bypass DSL** - Don't use raw SpacetimeDB insert/update/delete operations
+3. **Use DSL everywhere** - All code paths must go through SpacetimeDSL methods
+
+If you bypass DSL methods and use `ctx.db()` directly, you will:
+
+- ❌ Break foreign key referential integrity
+- ❌ Create orphaned rows or dangling references
+- ❌ Skip cascade delete operations
+- ❌ Skip validation hooks
+- ❌ Create data corruption
+
+**Rule of thumb:** If you declared `#[foreign_key]` or `#[referenced_by]`, you MUST use DSL methods exclusively for those tables.
+
+### 3. Hooks System
+
+Execute custom logic before/after operations:
+
+```rust
+#[dsl(
+    plural_name = attributes,
+    method(update = true, delete = true),
+    hook(before(insert, update, delete), after(insert, update, delete))
+)]
+pub struct Attribute {
+    #[primary_key]
+    #[auto_inc]
+    #[create_wrapper]
+    id: u128,
+    
+    pub value: String,
+}
+
+// Hook implementations
+#[spacetimedsl::hook]
+fn before_attribute_insert(
+    dsl: &impl DSLContext,
+    mut create_request: CreateAttribute,
+) -> Result<CreateAttribute, SpacetimeDSLError> {
+    // Can mutate the request before insertion
+    create_request.value = format!("{}_ATTRIBUTE", create_request.value);
+    Ok(create_request)  // Must return the (potentially modified) request
+}
+
+#[spacetimedsl::hook]
+fn after_attribute_insert(
+    dsl: &impl DSLContext,
+    new_row: &Attribute,
+) -> Result<(), SpacetimeDSLError> {
+    log::info!("Created attribute: {}", new_row.value());
     Ok(())
 }
 
-Ok, wow.
-
-First and foremost: Your code is now much nicer to read and write!
-
-The Create DSL Method didn't want you to create and supply an Entity in order to insert it into the database. That's because
-
-    the id column has the #[auto_inc] attribute and
-
-    the second column is named created_at and has the spacetimedb::Timestamp type.
-
-The DSL automatically applies default values to them during creation:
-
-    0 for the id column (which means the ID is generated by the DB) and
-
-    ctx.timestamp for the created_at column.
-
-For modified_at columns, the DSL supports both spacetimedb::Timestamp and Option<spacetimedb::Timestamp> types, automatically setting the value to ctx.timestamp or Some(ctx.timestamp) respectively.
-
-SpacetimeDSL wraps a &spacetimedb::ReducerContext and provides a more ergonomic API for it, including added capabilities to reduce boilerplate code.
-
-Instances of the DSL can be created through the spacetimedsl::dsl(ctx: &ReducerContext) -> DSL; function, but you should do that only once at the beginning of every reducer.
-
-Instead of passing the &DSL and the &ReducerContext to functions/methods, you should only pass the &DSL and use the ctx() method on it (if you really need to do that), which is defined by the spacetimedb::DSLContext trait.
-
-Here is the implementation of the Create DSL method:
-
-pub trait CreateEntityRow : spacetimedsl::DSLContext {
-    fn create_entity<'a>(&'a self) -> Result<Entity, spacetimedsl::SpacetimeDSLError> {
-        use spacetimedsl::Wrapper;
-        use spacetimedb::{DbContext, Table};
-
-        let id = u128::default();
-        let created_at = self.ctx().timestamp;
-
-        let entity = Entity { id, created_at };
-
-        match self.ctx().db().entity().try_insert(entity) {
-            Ok(entity) => Ok(entity),
-            Err(error) => {
-                match error {
-                    spacetimedb::TryInsertError::UniqueConstraintViolation(_) => {
-                        Err(spacetimedsl::SpacetimeDSLError::UniqueConstraintViolation {
-                            table_name: "entity".into(),
-                            action: spacetimedsl::Action::Create,
-                            error_from: spacetimedsl::ErrorFrom::SpacetimeDB,
-                            one_or_multiple: spacetimedsl::OneOrMultiple::One,
-                            column_names_and_row_values: format!(
-                                "{{ entity : {:?} }}",
-                                entity
-                            ).into(),
-                        })
-                    }
-                    spacetimedb::TryInsertError::AutoIncOverflow(_) => {
-                        Err(spacetimedsl::SpacetimeDSLError::AutoIncOverflow {
-                            table_name: "entity".into(),
-                        })
-                    }
-                }
-            }
-        }
-    }
+#[spacetimedsl::hook]
+fn before_attribute_update(
+    dsl: &impl DSLContext,
+    old_row: &Attribute,
+    mut new_row: Attribute,
+) -> Result<Attribute, SpacetimeDSLError> {
+    // Can mutate new_row before update, old_row is read-only
+    // Validation logic here
+    Ok(new_row)  // Must return the (potentially modified) new_row
 }
 
-impl CreateEntityRow for spacetimedsl::DSL<'_> {}
+#[spacetimedsl::hook]
+fn after_attribute_update(
+    dsl: &impl DSLContext,
+    old_row: &Attribute,
+    new_row: &Attribute,
+) -> Result<(), SpacetimeDSLError> {
+    log::info!("Updated attribute from '{}' to '{}'", old_row.value(), new_row.value());
+    Ok(())
+}
 
-The SpacetimeDSLError Type
+#[spacetimedsl::hook]
+fn before_attribute_delete(
+    dsl: &impl DSLContext,
+    old_row: &Attribute,
+) -> Result<(), SpacetimeDSLError> {
+    // Pre-deletion validation
+    Ok(())
+}
 
-Have you already stumbled across SpacetimeDSLError? That's good! Unlike the errors the DB returns.
+#[spacetimedsl::hook]
+fn after_attribute_delete(
+    dsl: &impl DSLContext,
+    old_row: &Attribute,
+) -> Result<(), SpacetimeDSLError> {
+    log::info!("Deleted attribute: {}", old_row.value());
+    Ok(())
+}
+```
 
-The DSL transforms them and adds metadata for better debugging capabilities.
+Hook naming: `{before|after}_{table_name}_{insert|update|delete}`
 
-DB methods which return
+Hook signatures:
 
-    a spacetimedb::TryInsertError<entity__TableHandle> (Insert and Update)
+- `before_insert`: Takes mutable `Create{Table}` request, returns modified request
+- `after_insert`: Takes immutable `&{Table}` row reference
+- `before_update`: Takes immutable `old_row: &{Table}` and mutable `new_row: {Table}`, returns modified new_row
+- `after_update`: Takes immutable `old_row: &{Table}` and `new_row: &{Table}` references
+- `before_delete`: Takes immutable `old_row: &{Table}` reference
+- `after_delete`: Takes immutable `old_row: &{Table}` reference
 
-    a bool (Delete One),
+Error handling in hooks:
 
-    an Option (Get One) or
+- All hooks can return errors using `Err(SpacetimeDSLError::Error("My error message".to_string()))`
+- `before` hooks: Returning an error aborts the operation before any database changes
+- `after` hooks: Returning an error propagates the error but the database change already happened
+- Errors propagate to the reducer calling the DSL method
+- If the calling reducer ignores an error (it shouldn't!) and returns `Ok(())`, database changes get persisted! Always default to `?;` (propagate error)
 
-    an u64 (Delete Many)
+### 4. Unique Multi-Column Indices
 
-return SpacetimeDSLError in the DSL methods.
+```rust
+#[dsl(
+    plural_name = entity_relationships,
+    method(update = true, delete = true),
+    unique_index(name = parent_child_entity_id)
+)]
+#[table(
+    name = entity_relationship,
+    index(name = parent_child_entity_id, btree(columns = [parent_entity_id, child_entity_id]))
+)]
+pub struct EntityRelationship {
+    #[primary_key]
+    #[auto_inc]
+    #[create_wrapper]
+    id: u128,
+    
+    #[use_wrapper(EntityId)]
+    parent_entity_id: u128,
+    
+    #[use_wrapper(EntityId)]
+    child_entity_id: u128,
+}
 
-// Enum variant data omitted
+// Usage
+dsl.get_entity_relationship_by_parent_child_entity_id(&parent_id, &child_id)?;
+dsl.update_entity_relationship_by_parent_child_entity_id(relationship)?;
+dsl.delete_entity_relationship_by_parent_child_entity_id(&parent_id, &child_id)?;
+```
+
+**⚠️ CRITICAL: SpacetimeDB Limitation**
+
+SpacetimeDB does NOT natively support unique multi-column indices. SpacetimeDSL enforces uniqueness by checking before insert/update, but this ONLY works if you:
+
+1. **Always use DSL methods** - Never call `ctx.db()` or `dsl.ctx().db()` mutating methods directly
+2. **Never bypass DSL** - Don't use raw SpacetimeDB insert/update/delete operations
+3. **Use DSL everywhere** - All code paths must go through SpacetimeDSL methods
+
+If you bypass DSL methods and use `ctx.db()` directly, you will:
+
+- ❌ Break unique multi-column constraints
+- ❌ Break foreign key referential integrity
+- ❌ Skip validation hooks
+- ❌ Create data corruption
+
+**Rule of thumb:** If you declared `#[foreign_key]`, `#[referenced_by]`, or `unique_index()` in `#[dsl]`, you MUST use DSL methods exclusively for that table.
+
+### 5. Method Configuration
+
+Explicit control over generated methods, tied to field visibility from Automatic Accessors (#6):
+
+```rust
+// Immutable audit log - all fields private, no modified_at/updated_at
+#[dsl(plural_name = audit_logs, method(update = false, delete = false))]
+pub struct AuditLog {
+    #[primary_key]
+    id: u128,
+    created_at: Timestamp,
+}
+
+// Updatable - has public field OR modified_at/updated_at
+#[dsl(plural_name = user_profiles, method(update = true, delete = false))]
+pub struct UserProfile {
+    #[primary_key]
+    id: u128,
+    pub name: String,  // Public field enables updates
+    modified_at: Option<Timestamp>,
+}
+
+// Fully mutable
+#[dsl(plural_name = cache_entries, method(update = true, delete = true))]
+pub struct CacheEntry {
+    #[primary_key]
+    id: u128,
+    pub data: String,
+}
+```
+
+**Compile-Time Validation:**
+
+The macro enforces consistency between field visibility and method configuration:
+
+- **`update = true` requires:**
+  - At least one non-private field (generates setter), OR
+  - A `modified_at`/`updated_at` field (auto-updated on changes)
+  - If neither exists → **Compilation error**
+
+- **`update = false` requires:**
+  - All fields must be private AND
+  - No `modified_at`/`updated_at` field allowed
+  - If public fields exist → **Compilation error**
+
+- **`delete = true` required if:**
+  - Any foreign key references this table with `on_delete = Delete`
+  - Otherwise → **Compilation error**
+
+- **Hooks require matching method:**
+  - `before_update`/`after_update` hooks require `method(update = true)`
+  - `before_delete`/`after_delete` hooks require `method(delete = true)`
+  - Mismatch → **Compilation error**
+
+These compile-time checks prevent runtime errors and ensure configuration consistency. See the Automatic Accessors feature (#6) for how field visibility controls setter generation.
+
+### 6. Automatic Accessors
+
+All fields become private, getters/setters generated:
+
+```rust
+pub struct Position {
+    id: u128,           // Private - only getter
+    pub x: i128,        // Public - getter + setter
+    created_at: Timestamp,  // Private - only getter
+}
+
+// Generated methods
+entity.get_id() -> PositionId
+entity.get_x() -> &i128
+entity.set_x(value: i128)
+entity.set_x(&other_entity)  // If wrapped type
+entity.get_created_at() -> &Timestamp
+```
+
+### 7. Rich Error Types
+
+```rust
 pub enum SpacetimeDSLError {
-    Error,                       // Not available in vanilla SpacetimeDB
-    NotFoundError,               // Not available in vanilla SpacetimeDB
-    UniqueConstraintViolation,
-    AutoIncOverflow,
-    ReferenceIntegrityViolation, // Not available in vanilla SpacetimeDB
+    Error(String),
+    NotFoundError { table_name, column_names_and_row_values },
+    UniqueConstraintViolation { table_name, action, ... },
+    AutoIncOverflow { table_name },
+    ReferenceIntegrityViolation(ReferenceIntegrityViolationError),
 }
+```
 
-The Error variant
+Better debugging with metadata:
 
-Used in unpleasant moments with the DB, when even the DSL can't help you. If you encounter this error, never ever return an Ok(()) in your reducer.
-The NotFoundError variant
+- `NotFoundError` includes table name and search values
+- `ReferenceIntegrityViolation` includes full deletion tree with `DeletionResult`
 
-Where the DB would only return an ordinary Option<T>, the DSL gives you a NotFound error – including the name of the table and the values of the columns.
+### 8. Deletion Results
 
-You would see them in the logs as following:
+Complete audit trail for deletes:
 
-Not Found Error while trying to find a row in the position table with {{ entity_id : 1 }}!).
-The UniqueConstraintViolation variant
-
-This error can originate from both the DB (unique single-column indices) and the DSL (unique multi-column indices).
-
-You've already seen how the DSL is transforming the error from the DB into it's own error type in the Create DSL method.
-
-You would see them in the logs as following:
-
-Unique Constraint Violation Error while trying to create a row in the entity table! Unfortunately SpacetimeDB doesn't provide more information, so here are all columns and their values: {{ entity : Entity { id: EntityId { id: 1 }, created_at: /* omitted */ } }}.
-The AutoIncOverflow variant
-
-It's the same error as the DB is currently returning (without the name of the column which caused it), but at least it returns the name of the table in the DSL.
-
-You would see them in the logs as following:
-
-Auto Inc Overflow Error on the entity table! Unfortunately SpacetimeDB doesn't provide more information.
-The ReferenceIntegrityViolation variant
-
-Is huge. You are able to encounter this error in two ways:
-
-    When creating or updating rows in tables whose foreign keys reference primary keys of other tables (have one or multiple columns with #[foreign_key]) or
-
-    when deleting rows in tables whose primary keys are referenced by foreign keys of other tables (have one or multiple #[referenced_by]s on the primary key column).
-
-The first type is not particularly complex: If you create or update a row and set the value of a column that has a foreign key, the DSL method checks whether a row exists in the referenced table with the same value in its primary key column.
-
-You would see them in the logs as following:
-
-Reference Integrity Violation Error while trying to create a row in the position table because of {{ entity_id : 1 }}!
-
-The second is more complex! Because:
-The DeletionResult[Entry] Type
-
-Developer : "Hi! It's me, a developer. I need an audit log about every deletion. How would I do that with you, DB?"
-
-DB : "Eh...
-I can give you information about whether
-
-    you've deleted a row or not (bool in Delete One methods) or
-
-    how many rows you've deleted (u64 in Delete Many methods).
-
-Is that enough?"
-
-DSL : "May I answer this question for you, developer?"
-
-Developer : "Yes, please!"
-
-DSL : "Okay, so DB, the answer is: No!
-
-But don't worry, developer, I have a solution for you! Let me present to you:"
-
-The DeletionResult Type!
-
+```rust
 pub struct DeletionResult {
     pub table_name: Box<str>,
     pub one_or_multiple: OneOrMultiple,
@@ -298,375 +406,173 @@ pub struct DeletionResultEntry {
     pub column_name: Box<str>,
     pub strategy: OnDeleteStrategy,
     pub row_value: Box<str>,
-    pub child_entries: Vec<DeletionResultEntry>,
+    pub child_entries: Vec<DeletionResultEntry>,  // Nested cascade
 }
 
-If you're using the Delete One or Delete Many DSL methods, you get a DeletionResult on success as well as on failure.
+// Usage
+let result = dsl.delete_entity_by_id(&entity)?;
+let csv = result.to_csv();  // Export for audit logs
+```
 
-You can use it directly to process it programmatically or use the to_csv method to log/persist it. You can then for example import it into your favorite spreadsheet application.
+## Common Patterns
 
-More on the creation of DeletionResults also later in the docs section about Foreign Keys and Referential Integrity.
-The OnDeleteStrategy Type
+### Self-Referencing Tables
 
-You've seen it already in the #[foreign_key] attribute as well as in the DeletionResultEntry type.
-
-It influences how the DSL should handle deletions of rows which are referenced by other rows.
-
-The doc comments speak for themselves:
-
-pub enum OnDeleteStrategy {
-    /**
-     * Available independent from the column type.
-     * 
-     * If a row of a table should be deleted whose primary key value is referenced in foreign keys ...
-     * ... of other tables the deletion fails with a Reference Integrity Violation Error.
-     */
-    Error,
-
-    /**
-     * Available independent from the column type.
-     * 
-     * If a row of a table should be deleted whose primary key value is referenced in foreign keys ...
-     * ... of other tables, it's checked whether any primary key value of rows to delete is referenced
-     * in a foreign key with `OnDeleteStrategy::Error`.
-     * 
-     * If true, the deletion fails with a Reference Integrity Violation Error and
-     * no other OnDeleteStrategy is executed (especially: no row is deleted).
-     * 
-     * If false, the on delete strategies of all affected rows are executed and rows are deleted.
-     */
-    Delete,
-
-    /**
-     * TODO: Because Option is currently not allowed on primary_key and unique/btree indices this
-     * strategy isn't used and implemented yet.
-     * 
-     * Available only for columns with type `Option<T>`.
-     * 
-     * If a row of a table should be deleted whose primary key value is referenced in foreign keys ...
-     * ... of other tables the value of the foreign key column is set to `None`.
-     */
-    //SetNone,
-
-    /**
-     * Available only for columns with a numeric type.
-     * 
-     * If a row of a table should be deleted whose primary key value is referenced in foreign keys ...
-     * ... of other tables the value of the foreign key column is set to `0`.
-     */
-    SetZero,
-
-    /**
-     * Available independent from the column type.
-     * 
-     * If a row of a table should be deleted whose primary key value is referenced in foreign keys ...
-     * ... of other tables nothing happens, which means the referencing rows will reference a primary
-     * key value which doesn't exist anymore. The referential integrity is only enforced while creating
-     * a row or if a row is updated and the foreign key column value is changed.
-     */
-    Ignore,
-}
-
-The #[create_wrapper] and #[use_wrapper] attributes - aka Wrapper Types
-
-Every column with
-
-    #[primary_key],
-
-    #[unique] or
-
-    #[index]
-
-attribute requires a
-
-    #[create_wrapper] or
-
-    #[use_wrapper]
-
-attribute.
-
-The DSL generates unique, auto-generated alias types for these columns.
-
-They're called Wrapper Types because they're decreasing primitive obsession by wrapping primitive column types.
-
-Logical dependencies become physical ones and reversing the order of fields (e.g. of multi-column indices) results in compilation-errors instead of runtime-errors when accessing them.
-
-This is their API:
-
-pub trait Wrapper<WrappedType: Clone + Default, WrapperType>: Default +
-    Clone + PartialEq + PartialOrd + spacetimedb::SpacetimeType + Display
-{
-    fn new(value: WrappedType) -> WrapperType;
-    fn value(&self) -> WrappedType;
-}
-
-The difference between #[create_wrapper] and #[use_wrapper] is that the first is creating a new Wrapper Type while the second is using one which is already generated by another column (in a possibly foreign table).
-
-#[spacetimedsl::dsl(plural_name = entities)]
-#[spacetimedb::table(name = entity, public)]
-pub struct Entity {
-    // Default Name Strategy: EntityId
-    // format!("{}{}", singular_table_name_pascal_case, column_name_pascal_case)
-    #[create_wrapper]
-
-    //  Custom Name Strategy: EntityID
-    #[create_wrapper(name = EntityID)]
-
-    id: u128,
-
-    // Provide the name of the wrapper type if you're     in the same module
-    #[use_wrapper(name = EntityId)]
-
-     // Provide the path of the wrapper type if you're not in the same module
-    #[use_wrapper(path = crate::entity::EntityId)]
-
-    parent_entity_id: u128,
-}
-
-If you encounter an compilation error like:
-
-The trait bound WrapperType: From<NumericType> is not satisifed.
-The trait From<NumericType> is not implemented for WrapperType.
-But trait From<&TableType> is implemented fort it.
-For that trait implementation, expected &TableType, found NumericType.
-Required for NumericType to implement Into<WrapperType>
-
-this means that you've provided a NumericType (like u128) as argument where a WrapperType is required.
-
-It's a common limitation of the SpacetimeDB CLI and the Admin Panel that they don't support custom, non-primitive types - they are affected by primitive obsession. Therefore they have no feature-parity with SpacetimeDB server modules. SpacetimeDSL tries to increase the developer experience and uses the full capacities of SpacetimeDB for it, which are supported by SpacetimeDB clients.
-
-That said: If you're creating a Wrapper Type object yourself (WrapperType::new(wrapped_type)) you're doing something what you shouldn't do, because the whole ecosystem around your server modules should incorporate the Wrapper Types into their API (e. g. reducer arguments) to not be obsessed by the primitive types which they wrap.
-Accessors (Getters and Setters)
-
-For any column of a table, a public getter is generated. It returns either a reference to the rows value for the column or if it's a wrapped type it clones the value and creates a new instance of the Wrapper Type.
-
-For any column in the table which is not private, a setter with the visibility of the column is generated. So you can use the visibility of fields to describe that a field value should never change after creating a row.
-
-Automatic Field Privacy Enforcement: SpacetimeDSL automatically makes all struct fields private when the last DSL attribute is processed. This ensures that developers cannot access struct members directly and must always use the generated wrapper types, getters, and setters. This prevents unauthorized field modifications after initialization and enforces proper encapsulation.
-
-This is useful for e. g.
-
-    primary- and foreign key columns, which possibly should never change, as well as
-
-    a created_at column or
-
-    an event table for auditing purposes whose data should never change after creation.
-
-If all of your table columns are private, no Update DSL method will be generated, because you said through that, that the row should never change after its insertion.
-
-(If https://github.com/rust-lang/rust/issues/105077 is released, the DSL will use the field mutability restrictions instead of the visibility to decide whether or not to generate setters)
-Unique multi-column indices
-
-SpacetimeDSL has implemented unique multi-column indices before SpacetimeDB.
-
-Here is an example:
-
-#[dsl(
-    plural_name = entity_relationships,
-    unique_index(name = parent_child_entity_id)
-)]
-#[table(
-    name = entity_relationship,
-    public,
-    index(name = parent_child_entity_id, btree(columns = [parent_entity_id, child_entity_id]))
-)]
-pub struct EntityRelationship {
+```rust
+#[dsl(plural_name = entity_relationships3, method(update = true, delete = true))]
+pub struct EntityRelationship3 {
     #[primary_key]
     #[auto_inc]
+    #[create_wrapper]
+    #[referenced_by(path = crate, table = entity_relationship3)]
     id: u128,
+    
+    #[use_wrapper(EntityRelationship3Id)]
+    #[foreign_key(path = crate, table = entity_relationship3, on_delete = SetZero)]
+    pub parent_id: u128,
+}
+```
 
+### Multiple Foreign Keys to Same Table
+
+```rust
+pub struct EntityRelationship {
+    #[primary_key]
+    #[create_wrapper]
+    id: u128,
+    
+    #[use_wrapper(EntityId)]
+    #[foreign_key(path = crate, table = entity, on_delete = Error)]
     parent_entity_id: u128,
-
+    
+    #[use_wrapper(EntityId)]
+    #[foreign_key(path = crate, table = entity, on_delete = Delete)]
     child_entity_id: u128,
 }
+```
 
-As you can see, you just need
+### Timestamp Management
 
-    to add unique_index(name = parent_child_entity_id)
-
-    to your #[spacetimedsl::dsl(plural_name = entity_relationships)] attribute macro and
-
-    have a multi-column index on your #[spacetimedb::table] with the same name.
-
-You'll have the
-
-    Get One,
-
-    Update and
-
-    Delete One
-
-DSL methods now instead of the
-
-    Get Many and
-
-    Delete Many
-
-DSL methods. And if you're creating or updating a row, the DSL checks whether you're violating any unique multi-column index (while the DB checks all unique single-column indices).
-
-Keep in mind that the unique multi-column indices which the DSL provides are only enforced if you never call DB state mutating methods on the &spacetimedb::ReducerContext yourself (insert, update, delete) - so only use the &spacetimedsl::DSL methods.
-
-This feature is unstable and will be removed if the DB has implemented it's own unique multi column index feature.
-Foreign Keys / Referential Integrity
-
-You can add #[foreign_key] and #[referenced_by] to your table columns to enforce referential integrity and apply on delete strategies.
-
-Here is a example which is using both:
-
-pub mod entity {
-    #[dsl(plural_name = entities)]
-    #[table(name = entity, public)]
-    pub struct Entity {
-        #[primary_key]
-        #[auto_inc]
-        #[create_wrapper]
-        #[referenced_by(path = crate, table = identifier)] // Added
-        id: u128,
-
-        created_at: Timestamp,
-    }
+```rust
+pub struct Entity {
+    created_at: Timestamp,           // Auto-set on create
+    modified_at: Option<Timestamp>,  // Auto-set on update
 }
 
-pub mod identifier {
-    #[dsl(plural_name = identifiers)]
-    #[table(name = identifier, public)]
-    pub struct Identifier {
-        #[primary_key]
-        #[auto_inc]
-        #[create_wrapper]
-        #[referenced_by(path = crate, table = identifier_reference)]     // Added
-        id: u128
+// Timestamps automatically handled
+let entity = dsl.create_entity()?;  // created_at = ctx.timestamp
+let entity = dsl.update_entity_by_id(entity)?;  // modified_at = Some(ctx.timestamp)
+```
 
-        #[unique]
-        #[use_wrapper(path = crate::EntityId)]
-        #[foreign_key(path = crate, table = entity, on_delete = Delete)] // Added
-        entity_id: u128
+### Working with Wrapper Types
 
-        #[unique]
-        pub value: String
+```rust
+// Creating
+let entity_id = EntityId::new(123);
 
-        created_at: Timestamp
+// Extracting value
+let raw_id: u128 = entity_id.value();
 
-        modified_at: Timestamp,
-    }
+// From entity
+let id = entity.get_obj_id();  // Returns EntityId
+
+// Method accepts multiple forms
+dsl.get_position_by_entity_id(&entity)?;
+dsl.get_position_by_entity_id(entity.get_obj_id())?;
+dsl.get_position_by_entity_id(EntityId::new(123))?;
+```
+
+### Iterating Collections
+
+```rust
+let positions = dsl.get_all_positions();
+for position in positions {
+    println!("Position: {:?}", position);
 }
 
-#[dsl(plural_name = identifier_references)]
-#[table(name = identifier_reference, public)]
-pub struct IdentifierReference {
-    #[primary_key]
-    #[use_wrapper(name = IdentifierId)]
-    #[foreign_key(path = crate, table = identifier, on_delete = Error)]   // Added
-    id: u128,
+let count: usize = dsl.count_of_all_positions();
 
-    #[unique]
-    #[use_wrapper(name = IdentifierId)]
-    #[foreign_key(path = crate, table = identifier, on_delete = Delete)]  // Added
-    id2: u128,
+// With indices
+let positions = dsl.get_positions_by_x(&5);
+let count = dsl.delete_positions_by_x(&5)?;
+```
 
-    #[unique]
-    #[use_wrapper(name = IdentifierId)]
-    #[foreign_key(path = crate, table = identifier, on_delete = SetZero)] // Added
-    id3: u128,
+## Important Rules
 
-    #[unique]
-    #[use_wrapper(name = IdentifierId)]
-    #[foreign_key(path = crate, table = identifier, on_delete = Ignore)]  // Added
-    id4: u128,
+1. **Always use the DSL**: Don't call SpacetimeDB methods directly on `ctx.db()` when using foreign keys or unique multi-column indices
+2. **Wrapper types everywhere**: Include them in reducer arguments for full type safety
+3. **Private primary keys**: Primary keys are automatically private and unchangeable
+4. **Hook naming**: Must follow `{before|after}_{table_name}_{insert|update|delete}` pattern
+5. **Foreign key constraints**:
+   - `on_delete = Delete` requires `method(delete = true)`
+   - `on_delete = SetZero` requires `method(update = true)` and public column
+6. **Update requirements**: Need at least one public updatable column OR `modified_at`/`updated_at`
+
+## Generated Methods
+
+For each table, SpacetimeDSL generates:
+
+**Always Generated:**
+
+- `create_{table}(Create{Table})` - Insert with smart defaults
+- `get_{table}_by_{primary_key}` - Find by primary key
+- `get_{table}_by_{unique_column}` - Find by unique column
+- `get_{tables}_by_{index_column}` - Find many by index
+- `get_all_{tables}()` - Iterator over all rows
+- `count_of_all_{tables}()` - Count all rows
+
+**If `method(update = true)`:**
+
+- `update_{table}_by_{primary_key}({Table})`
+- `update_{table}_by_{unique_index}({Table})`
+
+**If `method(delete = true)`:**
+
+- `delete_{table}_by_{primary_key}` - Returns `DeletionResult`
+- `delete_{table}_by_{unique_column}` - Returns `DeletionResult`
+- `delete_{tables}_by_{index_column}` - Returns `DeletionResult`
+
+## Best Practices
+
+1. **Create DSL once**: `let dsl = spacetimedsl::dsl(ctx);` at reducer start
+2. **Pass DSL not context**: Functions should accept `&impl DSLContext`
+3. **Use hooks for validation**: Put business logic in hooks, not reducers
+4. **Leverage type safety**: Use wrapper types in all APIs
+5. **Design for immutability**: Default to `update = false` unless needed
+6. **Explicit foreign keys**: Always specify `on_delete` strategy explicitly
+7. **Backup before testing**: Foreign key feature is unstable, backup data first
+
+## Error Handling
+
+```rust
+match dsl.create_entity() {
+    Ok(entity) => { /* ... */ },
+    Err(SpacetimeDSLError::UniqueConstraintViolation { .. }) => {
+        // Handle duplicate
+    },
+    Err(SpacetimeDSLError::ReferenceIntegrityViolation(err)) => {
+        // Handle foreign key violation
+        let deletion_result = err.deletion_result();
+    },
+    Err(e) => return Err(e.to_string()),
 }
+```
 
-The #[referenced_by] attribute needs values for the path and table fields and is only allowed on #[primary_key] columns (which require #[create_wrapper]/#[use_wrapper]).
+## Limitations
 
-You can add multiple #[referenced_by]'s to the same primary key column, but you need one for each table which has a #[foreign_key] referencing the table (see the pk column of the entity table).
+- IndexScanRangeBounds / FilterableValue not yet supported
+- Foreign keys and unique multi-column indices are unstable (SpacetimeDB doesn't have native support yet)
+- Only works with procedural macro attributes (not all SpacetimeDB features supported)
 
-#[referenced_by]'s are responsible for calling the OnDeleteStrategy's of tables which reference them though a #[foreign_key], that means it's influencing the Delete One and Delete Many DSL methods.
+## Architecture
 
-#[foreign_key]'s are only allowed on columns with #[primary_key], #[index] or #[unique].
+SpacetimeDSL is a procedural macro that:
 
-They require the #[use_wrapper] attribute and you need a value for the path, table, column and on_delete fields.
+1. Parses `#[dsl]` attributes alongside `#[spacetimedb::table]`
+2. Generates trait methods for each operation
+3. Implements traits for `spacetimedsl::DSL<'_>`
+4. Creates wrapper types with `Display`, `Clone`, `PartialEq`, etc.
+5. Generates internal functions for foreign key cascade operations
+6. Validates configuration at compile time
 
-Only one #[foreign_key] is allowed per column.
-
-#[foreign_key]s are responsible for referential integrity checks when creating or updating rows as well as executing the OnDeleteStrategy if a row of the referenced table is deleted.
-
-Keep in mind that the referential integrity which the DSL provides is only enforced if you never call DB state mutating methods on the &spacetimedb::ReducerContext yourself (insert, update, delete) - so only use the &spacetimedsl::DSL methods.
-
-This feature is unstable. First it will be removed if SpacetimeDB has implemented it's own referential integrity / foreign key features, second there are tests to ensure referential integrity, but there may be cases which aren't tested yet. Make backups of your data before testing the feature and PLEASE, if you find any bug, create a GitHub issue!
-Here is the `Delete One` DSL method of the Entity table
-
-The Delete One and Delete Many DSL methods call internal functions, which are generated by tables with #[referenced_by]'s.
-Internals
-
-    You don't need to know that. If you want, keep reading, if not jump to the plural name DSL attribute field.
-
-They are called more than one time to ensure that OnDeleteStrategy::Error is always processed first.
-
-There is one implementation which is called if
-
-    one row of the referenced table should be deleted and
-
-one which is called if
-
-    multiple rows of the referenced table should be deleted.
-
-They're the same except that the one for multiple rows has
-
-    a &'a [PrimaryKeyType] instead of a &PrimaryKeyType parameter and
-    a std::collections::HashMap<&'a u128, Vec<spacetimedsl::DeletionResultEntry>> instead of a Vec<spacetimedsl::DeletionResultEntry> return type.
-
-Let's have a look at the function for the multiple rows
-
-As you can see it's calling another internal function, which is generated by the Identifier table(because it has a #[foreign_key]) attribute.
-Let's have a look into the one created by the `Identifier` table
-
-Because the Identifier table is referenced by the Identifier Reference table, it does much during execution of the OnDeleteStrategy::Delete strategy.
-
-It calls it's own function generated because it has at least one #[referenced_by].
-
-This method is like the one before, except that it calls the function of the Identifier Reference table.
-Let's have a look into it (which doesn't do that much stuff in the OnDeleteStrategy::Delete match arm as the one for the Identifier table)
-
-The plural name DSL attribute field
-
-You've seen it in the #[spacetimedsl::dsl(plural_name = entites)] attribute.
-
-It's required and it's used in the names of DSL methods which are generated for #[index(btree)] columns (Get Many and Delete Many)
-Other DSL methods
-
-You haven't seen any method which the DSL provides you - every DB method has a equivalent:
-
-DSL methods generated by the example project
-
-Example usage of the generated dsl methods
-
-That's why I wholeheartedly invite you to try SpacetimeDSL for yourself, by adding it to the Cargo.toml of your server modules:
-
-# https://crates.io/crates/spacetimedsl Ergonomic DSL for SpacetimeDB
-spacetimedsl = { version = "*" }
-
-Get started by adding #[spacetimedsl::dsl] as well as it's helper attributes #[create_wrapper], #[use_wrapper],
-#[foreign_key] and #[referenced_by] to your structs with #[spacetimedb::table]!
-Current limitations
-
-    A #[spacetimedsl::dsl] attribute macro must be directly above a #[spacetimedb::table] attribute macro.
-
-The following things aren't considered during code generation yet:
-
-    Using IndexScanRangeBounds / FilterableValue
-
-FAQ
-
-    Why must #[primary_key] columns be private?
-
-    Because they should never change after insertion.
-
-    The DSL generates setters for every column which is not private.
-
-    By making them public, you could change them after creation through the setter and you could also access them directly as struct member, where you wouldn't get their wrapped type.
-
-    Why has the DSL generated no Update method for this table?
-
-    Because all of your columns are private - therefor they have no setters and the row should never change after insertion.
-
-    Make the columns which should change pub, pub(self) or pub(in <path>) and an Update DSL method is generated for the table!
-
+The DSL wraps `&spacetimedb::ReducerContext` and provides the same `ctx()` accessor for when you need the underlying context.

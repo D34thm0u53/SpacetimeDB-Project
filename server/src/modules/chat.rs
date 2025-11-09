@@ -2,7 +2,6 @@ use spacetimedb::{table, Identity, ReducerContext, Timestamp};
 use spacetimedsl::dsl;
 
 use crate::modules::player::*;
-use crate::modules::common::*;
 
 #[dsl(plural_name = global_chat_messages)]
 #[table(name = global_chat_message, public)]
@@ -18,20 +17,29 @@ pub struct GlobalChatMessage {
     created_at: Timestamp,
 }
 
+
 /// Table for storing private messages sent between players.
 /// Each row represents a single message from sender to receiver, with content and timestamp.
-#[dsl(plural_name = private_chat_messages)]
-#[table(name = private_chat_message, public, index(name = sender_and_receiver, btree(columns = [sender_identity, receiver_identity])))]
-pub struct PrivateChatMessage {
+#[dsl(plural_name = direct_messages)]
+#[table(name = direct_message, public, index(name = sender_and_receiver, btree(columns = [sender_id, receiver_id])))]
+pub struct DirectMessage {
     #[primary_key]
     #[auto_inc]
     #[create_wrapper]
     id: u32,
-    pub sender_identity: Identity, // FK to Player
-    pub receiver_identity: Identity, // FK to Player
+    #[index(btree)]
+    #[use_wrapper(name = PlayerAccountId)]
+    #[foreign_key(path = crate, column = id, table = player_account, on_delete = SetZero)]
+    pub sender_id: u32, // FK to Player
+    #[index(btree)]
+    #[use_wrapper(name = PlayerAccountId)]
+    #[foreign_key(path = crate, column = id, table = player_account, on_delete = SetZero)]
+    pub receiver_id: u32, // FK to Player
     pub message: String,
     pub sent_at: Timestamp,
 }
+
+
 
 
 
@@ -84,10 +92,28 @@ use spacetimedb::{client_visibility_filter, Filter};
 const PLAYER_IGNORE_PAIR_FILTER: Filter = Filter::Sql(
     "SELECT * FROM player_ignore_pair WHERE ignorer_identity = :sender",
 );
+
+
+// Filter to only show Private messages, where the receiver is the client.
 #[client_visibility_filter]
-const PRIVATE_CHAT_MESSAGE_FILTER: Filter = Filter::Sql(
-    "SELECT * FROM private_chat_message WHERE receiver_identity = :sender",
+const PRIVATE_CHAT_MESSAGE_RECEIVER_FILTER: Filter = Filter::Sql(
+    "SELECT dm.*
+    FROM direct_message dm
+    JOIN player_account ON dm.sender_id = player_account.id
+    WHERE dm.receiver_id = player_account.id
+    AND player_account.identity = :sender",
 );
+
+// Filter to only show Private messages, where the sender is the client.
+#[client_visibility_filter]
+const PRIVATE_CHAT_MESSAGE_SENDER_FILTER: Filter = Filter::Sql(
+    "SELECT dm.*
+    FROM direct_message dm
+    JOIN player_account ON dm.sender_id = player_account.id
+    WHERE dm.sender_id = player_account.id
+    AND player_account.identity = :sender",
+);
+    
 
 
 #[spacetimedb::reducer]
@@ -161,8 +187,6 @@ pub fn send_global_chat(ctx: &ReducerContext, chat_message: String) -> Result<()
     // else 
         dsl.create_global_chat_message(ctx.sender, &get_username_by_identity(ctx, ctx.sender), &chat_message)?;
         Ok(())
-
-
 }
 
 
@@ -173,14 +197,10 @@ pub fn send_global_chat(ctx: &ReducerContext, chat_message: String) -> Result<()
 pub fn send_private_chat(ctx: &ReducerContext, target_username: String, message: String) -> Result<(), String> {
     let dsl = dsl(ctx);
     // Look up the receiver's identity by username
-    let Some(receiver_identity) = get_player_identity_by_username(ctx, &target_username) else {
-        log::warn!("Failed to send private message: Target player '{}' not found", target_username);
-        return Err("Target player not found".to_string());
-    };
-    // Save the message regardless of ignore status
-    dsl.create_private_chat_message(ctx.sender, receiver_identity, &message, ctx.timestamp)?;
+    // get the PlayerAccount by username
+    let receiver_account = dsl.get_player_account_by_username(&target_username)?;
+    let sender_account = dsl.get_player_account_by_identity(&ctx.sender)?;
+
+    dsl.create_direct_message(sender_account.get_id(), receiver_account.get_id(), &message, ctx.timestamp)?;
     Ok(())
 }
-
-
-

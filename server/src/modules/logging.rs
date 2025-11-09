@@ -37,7 +37,6 @@ pub fn log_event(ctx: &ReducerContext, description: String) {
     if let Err(e) = dsl.create_event_log(ctx.sender, &description) {
         // You can log the error or handle it as needed
         log::error!("Failed to create event log: {:?}", e);
-
     }
 }
 

@@ -1,4 +1,4 @@
-use spacetimedb::{table, Identity, Timestamp, ReducerContext};
+use spacetimedb::{table, Timestamp, ReducerContext};
 use spacetimedsl::dsl;
 
 #[dsl(plural_name = player_statuses)]
@@ -7,22 +7,37 @@ pub struct PlayerStatus {
     #[primary_key]
     #[use_wrapper(path = crate::modules::player::PlayerAccountId)]
     id: u32,
-    #[unique]
-    pub identity: Identity, // Link to player by identity
     pub base_health: u32,   // 0-1000, typically 500
     pub shield: u32,        // 0-1000, typically 500
-    pub concussed: f32,     // 0.0-1.0 (percentage, 1.0 = 100%)
-    pub flashed: f32,       // 0.0-1.0
-    pub emped: f32,         // 0.0-1.0
-    pub poisoned: f32,      // 0.0-1.0
+    pub concussed: i8,     // -128 <-> 127
+    pub flashed: i8,       // -128 <-> 127
+    pub emped: i8,         // -128 <-> 127
+    pub poisoned: i8,      // -128 <-> 127
     modified_at: Timestamp,
 }
 
 impl PlayerStatus {
+
+    pub fn create_default_state(dsl: &spacetimedsl::DSL, id : crate::modules::player::PlayerAccountId) -> Self {
+        dsl.create_player_status( id, 500, 500, 0, 0, 0, 0).expect("Failed to create default PlayerStatus")
+    }
+
+
     pub fn total_health(&self) -> u32 {
         self.base_health + self.shield
     }
+
+    pub fn is_alive(&self) -> bool {
+        self.total_health() > 0
+    }
+
 }
+
+
+
+
+
+
 
 /// Applies damage from an attacker to a victim, updating shield and health accordingly.
 /// Damage is absorbed by shield first, then by base_health. If both reach zero, the player is considered dead.
@@ -33,6 +48,7 @@ pub fn apply_damage(ctx: &ReducerContext, victim: crate::modules::player::Player
     // Get DSL context
     let dsl = dsl(ctx);
 
+    // Fetch the PlayerStatus for the victim
     let mut status_record = match dsl.get_player_status_by_id(&victim) {
         Ok(record) => record,
         Err(e) => {
@@ -46,7 +62,9 @@ pub fn apply_damage(ctx: &ReducerContext, victim: crate::modules::player::Player
         log::debug!("Player {} is already dead, ignoring damage", victim);
         return;
     }
+    
 
+    // Apply damage logic
     let original_health = status_record.base_health;
     let original_shield = status_record.shield;
     let mut remaining_damage = damage;

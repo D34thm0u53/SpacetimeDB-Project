@@ -1,8 +1,9 @@
 use spacetimedb::{table, ReducerContext, Timestamp };
+use spacetimedsl::Wrapper;
 use spacetimedsl::{ dsl };
 
 use super::entity::*;
-
+use crate::modules::player::*;
 
 /* 
 Tables:
@@ -42,14 +43,10 @@ pub struct EntityChunk {
 }
 
 
-
-
-
-
 /* 
 Reducers
 ## Note: 
-    Due to SpacetimeDB's design, performing a row update is actually a delete followed by an insert.
+    Due to SpacetimeDB's atomic design, performing a row update is actually a delete followed by an insert.
     At a later date with load testing, we will find which method is more performant.
     1. Load the record, compare if it matches the new position, and update if it does not.
     2. Delete the record, then insert the new position. regardless of data matching.
@@ -62,59 +59,26 @@ Reducers
     # This is useful for ensuring that the position is always updated, even if it is the same as before.
 
 */
-
-
-
-
-
-
 #[spacetimedb::reducer]
-pub fn update_my_position(ctx: &ReducerContext, entity: Entity, new_position: EntityPosition) -> Result<(), String> {
+pub fn update_my_position(ctx: &ReducerContext, new_position: EntityPosition) -> Result<(), String> {
     let dsl = dsl(ctx);
 
-    // Verify the entity exists
-    match dsl.get_entity_by_id(entity.get_id()) {
-        Ok(_) => {
-            // Entity exists, proceed with position update
-            match dsl.get_entity_position_by_id(entity.get_id()) {
-                Ok(current_position) => {
-                    // Check if position has actually changed to avoid unnecessary updates
-                    if current_position.x == new_position.x
-                        && current_position.y == new_position.y
-                        && current_position.z == new_position.z {
-                        return Ok(());
-                    }
+    use crate::modules::player::PlayerAccountId;
+    let player_id = PlayerAccountId::new(new_position.id);
+    let mut position_record = dsl.get_entity_position_by_id(player_id)?;
 
-                    // Update the existing position
-                    let updated_position = EntityPosition {
-                        x: new_position.x,
-                        y: new_position.y,
-                        z: new_position.z,
-                        ..current_position // Preserve other fields like ID
-                    };
-
-                    dsl.update_entity_position_by_id(updated_position)
-                        .map_err(|e| format!("Failed to update entity position: {:?}", e))?;
-                }
-                Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
-                    // Entity exists but has no position record - create one
-                    dsl.create_entity_position(entity.get_id(), new_position.x, new_position.y, new_position.z)
-                        .map_err(|e| format!("Failed to create entity position: {:?}", e))?;
-                }
-                Err(e) => {
-                    return Err(format!("Failed to retrieve entity position: {:?}", e));
-                }
-            }
-        }
-        Err(_) => {
-            log::info!("Entity not found for position update: {:?}", entity.get_id());
-            return Err("Entity not found".to_string());
-        }
+    // Check if position has actually changed to avoid unnecessary updates
+    if position_record.x == new_position.x
+        && position_record.y == new_position.y
+        && position_record.z == new_position.z {
+        return Ok(());
     }
 
+    // Update the existing position
+    position_record.x = new_position.x;
+    position_record.y = new_position.y;
+    position_record.z = new_position.z;
+    dsl.update_entity_position_by_id(position_record)
+        .map_err(|e| format!("Failed to update entity position: {:?}", e))?;
     Ok(())
 }
-
-
-
-
