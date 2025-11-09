@@ -163,6 +163,40 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
         "connect" => {
             log::debug!("Player [{}] connected", ctx.sender);
             // Authentication is now handled by SpaceTimeAuth
+
+            // Here we will validate the issuer identity and create a PlayerAccount if it doesn't exist.
+            
+            // for now, just create if not exists
+            
+            match does_player_account_exist(ctx, ctx.sender) {
+
+                true => {
+                    log::debug!("PlayerAccount already exists for identity: {}", ctx.sender);
+                },
+                false => {
+                    // Create a default username based on identity
+                    let default_username = format!("player_{}", ctx.sender.to_string().chars().take(16).collect::<String>());
+                    match create_player_account(ctx, ctx.sender, default_username) {
+                        Ok(account) => {
+                            log::info!("Created PlayerAccount [{}] for new identity: {}", account.get_id(), ctx.sender);
+                            // Create related records
+                            match create_related_records_for_playeraccount(ctx, &account) {
+                                Ok(_) => {
+                                    log::info!("Created related records for PlayerAccount [{}]", account.get_id());
+                                },
+                                Err(e) => {
+                                    log::error!("Failed to create related records for PlayerAccount [{}]: {}", account.get_id(), e);
+                                }
+                            }
+                        },
+                        Err(e) => {
+                            log::error!("Failed to create PlayerAccount for identity [{}]: {}", ctx.sender, e);
+                        }
+                    }
+                }
+            }
+
+
         },
 
         "disconnect" => {
