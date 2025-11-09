@@ -1,6 +1,8 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
 
 use spacetimedsl::*;
+use spacetimedsl::hook;
+
 use crate::modules::util::*;
 use crate::modules::entity::*;
 use crate::modules::roles::*;
@@ -11,7 +13,10 @@ use crate::common::try_server_or_dev;
 
 
 
-#[dsl(plural_name = player_accounts)]
+#[dsl(plural_name = player_accounts,
+    method(update = true, delete = true),
+    hook( after(insert))
+)]
 #[table(name = player_account, public)]
 pub struct PlayerAccount {
     #[primary_key]
@@ -32,12 +37,14 @@ pub struct PlayerAccount {
 }
 
 // online_player is a table that stores currently online players.
-#[dsl(plural_name = online_players)]
+#[dsl(plural_name = online_players,
+    method(update = true, delete = true)
+)]
 #[table(name = online_player, public)]
 pub struct OnlinePlayer {
     #[primary_key]
-    #[use_wrapper(name = PlayerAccountId)]
-    #[foreign_key(path = crate, column = id, table = player_account, on_delete = Delete)]
+    #[use_wrapper(PlayerAccountId)]
+    #[foreign_key(path = crate, column = id, table = player_account, on_delete = Error)]
     id: u32,
     #[unique]
     pub identity: Identity,
@@ -45,13 +52,12 @@ pub struct OnlinePlayer {
 }
 
 // offline_player is a table that stores currently offline players.
-#[dsl(plural_name = offline_players)]
+#[dsl(plural_name = offline_players, method(update = true, delete = true))]
 #[table(name = offline_player, public)]
 pub struct OfflinePlayer {
    #[primary_key]
-    #[use_wrapper(name = PlayerAccountId)]
+    #[use_wrapper(PlayerAccountId)]
     #[foreign_key(path = crate, column = id, table = player_account, on_delete = Delete)]
-
     id: u32,
     #[unique]
     pub identity: Identity,
@@ -59,6 +65,41 @@ pub struct OfflinePlayer {
 }
 
 //// Impls ///
+ 
+// After insert hook
+#[hook]
+/// create related records for a player account.
+fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> Result<(), SpacetimeDSLError> {
+    /*  Revision History:
+        2025-09-28 - KS - Initial Version
+        2025-09-28 - KS - Added Role creation
+        2025-09-28 - KS - Added PlayerStatus creation
+        2025-09-28 - KS - Added Entity creation
+        2025-09-30 - KS - Added username normalization
+        2025-11-09 - KS - Migrated to onAfterPlayerAccountInsert
+    */
+
+    // Create default role profile
+    create_default_roles(&dsl, row.get_id())?;
+
+    // Move the player to online - Creating the OnlinePlayer record if it doesn't exist yet
+    row.move_player_to_online(dsl.ctx())?;
+
+    // Create default PlayerStatus record.
+    PlayerStatus::create_default_state(&dsl, row.get_id());
+
+    // Create entity records:
+    //  entity_rotation
+    //  entity_position
+    //  entity_chunk
+    create_entity_tree(dsl.ctx(), EntityType::Player);
+
+    Ok(())
+
+}
+
+
+
 impl PlayerAccount {
     /// Moves the player to offline status.
     fn move_player_to_offline(&self, ctx: &ReducerContext) -> Result<(), String> {
@@ -92,14 +133,17 @@ impl PlayerAccount {
             log::warn!("Player [{}] not found in online when moving to offline", self.get_id());
         }
         // Add to offline
-        dsl.create_offline_player(self.get_id(), self.identity)
+        dsl.create_offline_player(CreateOfflinePlayer {
+            id: self.get_id(),
+            identity: self.identity,
+        })
             .map_err(|e| format!("Failed to create offline player: {:?}", e))?;
         log::debug!("Moved player [{}] to offline", self.get_id());
         Ok(())
     }
 
     /// Moves the player to online status.
-    fn move_player_to_online(&self, ctx: &ReducerContext) -> Result<(), String> {
+    fn move_player_to_online(&self, ctx: &ReducerContext) -> Result<(), SpacetimeDSLError> {
         // For a given PlayerAccount, move them to online status.
         //
         // If the player is already online, this is a no-op.
@@ -118,13 +162,14 @@ impl PlayerAccount {
 
         // Remove from offline if exists
         if dsl.get_offline_player_by_id(&self.get_id()).is_ok() {
-            dsl.delete_offline_player_by_id(&self.get_id())
-                .map_err(|e| format!("Failed to remove from offline: {:?}", e))?;
+            dsl.delete_offline_player_by_id(&self.get_id())?;
         }
 
         // Add to online
-        dsl.create_online_player(self.get_id(), self.identity)
-            .map_err(|e| format!("Failed to create online player: {:?}", e))?;
+        dsl.create_online_player(CreateOnlinePlayer {
+            id: self.get_id(),
+            identity: self.identity,
+        })?;
         Ok(())
     }
 }
@@ -179,15 +224,6 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
                     match create_player_account(ctx, ctx.sender, default_username) {
                         Ok(account) => {
                             log::info!("Created PlayerAccount [{}] for new identity: {}", account.get_id(), ctx.sender);
-                            // Create related records
-                            match create_related_records_for_playeraccount(ctx, &account) {
-                                Ok(_) => {
-                                    log::info!("Created related records for PlayerAccount [{}]", account.get_id());
-                                },
-                                Err(e) => {
-                                    log::error!("Failed to create related records for PlayerAccount [{}]: {}", account.get_id(), e);
-                                }
-                            }
                         },
                         Err(e) => {
                             log::error!("Failed to create PlayerAccount for identity [{}]: {}", ctx.sender, e);
@@ -310,7 +346,10 @@ fn create_player_account(ctx: &ReducerContext, identity: Identity, username: Str
         return Err("Username already taken".to_string());
     }
     // Create PlayerAccount
-    let player_account = dsl.create_player_account(identity.clone(), &username)
+    let player_account = dsl.create_player_account(CreatePlayerAccount {
+        identity,
+        username: username.clone(),
+    })
         .map_err(|e| format!("Failed to create PlayerAccount: {:?}", e))?;
 
 
@@ -320,39 +359,7 @@ fn create_player_account(ctx: &ReducerContext, identity: Identity, username: Str
 }
 
 /// For a given PlayerAccount, related records in linked tables.
-fn create_related_records_for_playeraccount(ctx: &ReducerContext, player_account: &PlayerAccount) -> Result<(), String> {
-    /*  Revision History:
-        2025-09-28 - KS - Initial Version
-        2025-09-28 - KS - Added Role creation
-        2025-09-28 - KS - Added PlayerStatus creation
-        2025-09-28 - KS - Added Entity creation
-        2025-09-30 - KS - Added username normalization
-    */
 
-    let dsl = dsl(ctx);
-    // Security check - only allow server or developer to call this
-    if !try_server_or_dev(ctx) {
-        return Err("Unauthorized access".to_string());
-    }
-
-    // Create default role profile
-    create_default_roles(&dsl, player_account.get_id())?;
-
-    // Move the player to online - Creating the OnlinePlayer record if it doesn't exist yet
-    player_account.move_player_to_online(ctx)?;
-    
-    // Create default PlayerStatus record.
-    PlayerStatus::create_default_state(&dsl, player_account.get_id());
-
-    // Create entity records:
-    //  entity_rotation
-    //  entity_position
-    //  entity_chunk
-    create_entity_tree(ctx, EntityType::Player);
-
-    Ok(())
-
-}
 
 /// Reducers
 

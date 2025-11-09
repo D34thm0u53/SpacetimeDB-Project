@@ -1,11 +1,11 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
-use spacetimedsl::dsl;
+use spacetimedsl::*;
 
 
 
 
 
-#[dsl(plural_name = event_logs)]
+#[dsl(plural_name = event_logs, method(update = true))]
 #[table(name = event_log, public)]
 pub struct EventLog {
     #[primary_key]
@@ -17,7 +17,7 @@ pub struct EventLog {
     
 }
 
-#[dsl(plural_name = audit_logs)]
+#[dsl(plural_name = audit_logs, method(update = true))]
 #[table(name = audit_log, public)]
 pub struct AuditLog {
     #[primary_key]
@@ -34,7 +34,10 @@ pub struct AuditLog {
 pub fn log_event(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
     
-    if let Err(e) = dsl.create_event_log(ctx.sender, &description) {
+    if let Err(e) = dsl.create_event_log(CreateEventLog {
+        user: ctx.sender,
+        description,
+    }) {
         // You can log the error or handle it as needed
         log::error!("Failed to create event log: {:?}", e);
     }
@@ -44,7 +47,10 @@ pub fn log_event(ctx: &ReducerContext, description: String) {
 pub fn log_audit(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
 
-    if let Err(e) = dsl.create_audit_log(ctx.sender, &description) {
+    if let Err(e) = dsl.create_audit_log(CreateAuditLog {
+        user: ctx.sender,
+        description,
+    }) {
         log::error!("Failed to create audit log: {:?}", e);
     }
 

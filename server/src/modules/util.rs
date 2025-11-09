@@ -1,7 +1,7 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
-use spacetimedsl::{dsl};
+use spacetimedsl::*;
 
-#[dsl(plural_name = player_audits)]
+#[dsl(plural_name = player_audits, method(update = true))]
 #[table(name = player_audit, public)]
 pub struct PlayerAudit {
     #[primary_key]
@@ -16,7 +16,10 @@ pub struct PlayerAudit {
 pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) {
     let dsl = dsl(ctx);
     dsl
-        .create_player_audit(ctx.sender, action)
+        .create_player_audit(CreatePlayerAudit {
+            user_identity: ctx.sender,
+            action: action.to_string(),
+        })
         .expect("Failed to create audit record");
 }
 

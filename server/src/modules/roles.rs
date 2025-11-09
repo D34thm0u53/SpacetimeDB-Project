@@ -1,13 +1,13 @@
 use spacetimedb::{reducer, table, Identity, ReducerContext, Timestamp};
 use spacetimedb::SpacetimeType;
 
-use spacetimedsl::{dsl};
+use spacetimedsl::*;
 
 use crate::modules::player::*;
 use crate::modules::common::*;
 
 // Store User Roles
-#[dsl(plural_name = roles)]
+#[dsl(plural_name = roles, method(update = true, delete = true))]
 #[table(name = role, public)]
 pub struct Role {
     #[auto_inc]
@@ -15,7 +15,7 @@ pub struct Role {
     #[create_wrapper]
     id: u32,
     #[unique]
-    #[use_wrapper(path = crate::modules::player::PlayerAccountId)]
+    #[use_wrapper(crate::modules::player::PlayerAccountId)]
     #[foreign_key(path = crate::modules::player, table = player_account, column = id, on_delete = Delete)]
     pub user_id: u32,
     pub is_trusted_user: bool,
@@ -25,7 +25,7 @@ pub struct Role {
 
 
 
-#[dsl(plural_name = roles)]
+#[dsl(plural_name = roles_audits, method(update = false))]
 #[table(name = roles_audit, private)]
 pub struct RolesAudit {
     #[primary_key]
@@ -93,12 +93,12 @@ impl Role {
 
 // Create default roles for new users
 pub fn create_default_roles(dsl: &spacetimedsl::DSL, user_id: PlayerAccountId) -> Result<Role, spacetimedsl::SpacetimeDSLError> {
-    dsl.create_role(
+    dsl.create_role(CreateRole {
         user_id,
-        false, // is_trusted_user
-        false, // is_game_admin
-        false  // is_server_administrator
-    )
+        is_trusted_user: false,
+        is_game_admin: false,
+        is_server_administrator: false,
+    })
 }
 
 
@@ -149,7 +149,12 @@ pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, request
         .map_err(|e| format!("Failed to update user roles: {:?}", e))?;
 
     // Log the role change in the audit table, recording who performed the change
-    dsl.create_roles_audit(ctx.sender.clone(), target_identity, previous_user_roles_profile.clone(), requested_role.clone())?;
+    dsl.create_roles_audit(CreateRolesAudit {
+        actioner: ctx.sender,
+        identity: target_identity,
+        previous_role: previous_user_roles_profile.clone(),
+        new_role: requested_role.clone(),
+    })?;
     
     log::warn!(
         "Role updated for user {} from {:?} to {:?} by {} (requires monitoring)",

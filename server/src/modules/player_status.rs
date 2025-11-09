@@ -1,11 +1,11 @@
 use spacetimedb::{table, Timestamp, ReducerContext};
 use spacetimedsl::dsl;
 
-#[dsl(plural_name = player_statuses)]
+#[dsl(plural_name = player_statuses, method(update = true))]
 #[table(name = player_status, public)]
 pub struct PlayerStatus {
     #[primary_key]
-    #[use_wrapper(path = crate::modules::player::PlayerAccountId)]
+    #[use_wrapper(crate::modules::player::PlayerAccountId)]
     id: u32,
     pub base_health: u32,   // 0-1000, typically 500
     pub shield: u32,        // 0-1000, typically 500
@@ -19,7 +19,15 @@ pub struct PlayerStatus {
 impl PlayerStatus {
 
     pub fn create_default_state(dsl: &spacetimedsl::DSL, id : crate::modules::player::PlayerAccountId) -> Self {
-        dsl.create_player_status( id, 500, 500, 0, 0, 0, 0).expect("Failed to create default PlayerStatus")
+        dsl.create_player_status(CreatePlayerStatus {
+            id,
+            base_health: 500,
+            shield: 500,
+            concussed: 0,
+            flashed: 0,
+            emped: 0,
+            poisoned: 0,
+        }).expect("Failed to create default PlayerStatus")
     }
 
 
