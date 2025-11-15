@@ -520,9 +520,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1adc734a7fe7af5eb312c7ecab06b86853744a584bcb04f01cf90a4b5a93a9f"
+checksum = "b89bb9a5b50cddb9b9535d7f8a3be646d316beb9d351989121b270ea3c2c0743"
 dependencies = [
  "bytemuck",
  "derive_more",
@@ -539,9 +539,9 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-bindings-macro"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc3401b34447ea1ebed7289710fca3fb0510eca21fdca0568b483ccdab43716f"
+checksum = "d2ac86feaa2362c203a98dfbb929d50194ebd255b6877dc1be3078c7cb63f99b"
 dependencies = [
  "heck 0.4.1",
  "humantime",
@@ -553,18 +553,18 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-bindings-sys"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55f0444b30253a89032e52482a257a16b5c6240edb20cb07ccbb8f61ee393325"
+checksum = "1a17f04517728420575eb302e2f12d06cf322ef054078ce36871d90f94e86227"
 dependencies = [
  "spacetimedb-primitives",
 ]
 
 [[package]]
 name = "spacetimedb-lib"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a92d293f0949006422dd3db7513883fd37b39fb44e9eea0f2654638cf996db3"
+checksum = "9c2f595aab1aa8c466e844a7fca0569360c06deb0b9a90c1ca3de3b9dc67a577"
 dependencies = [
  "anyhow",
  "bitflags",
@@ -582,21 +582,22 @@ dependencies = [
 
 [[package]]
 name = "spacetimedb-primitives"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4f50d1579e9ad93ab9da8f12f355b98fee6a389badea2f6a6b1f6a963d4d49b1"
+checksum = "fae67966d95fcdc5efbdd1fefe1543d289c75c0a1ece3250a9dbcc31c2fb91c0"
 dependencies = [
  "bitflags",
  "either",
+ "enum-as-inner",
  "itertools 0.12.1",
  "nohash-hasher",
 ]
 
 [[package]]
 name = "spacetimedb-sats"
-version = "1.7.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "834ad502a46ebcb5f2411bb877e8565e2dabfdf941a57271a3659e7ea70e937f"
+checksum = "aa5136b38c4226fbcc9a12ed808044c85fb024b74c28e1403e1ed285e4b3d3ee"
 dependencies = [
  "anyhow",
  "arrayvec",
