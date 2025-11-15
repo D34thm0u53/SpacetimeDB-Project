@@ -11,11 +11,11 @@ Tables
 */
 
 // Structure for the entity position table
-#[dsl(plural_name = entity_rotations)]
+#[dsl(plural_name = entity_rotations, method(update = true, delete = true))]
 #[table(name = entity_rotation, public)]
 pub struct EntityRotation {
     #[primary_key]
-    #[use_wrapper(path = crate::modules::player::PlayerAccountId)]
+    #[use_wrapper(crate::modules::player::PlayerAccountId)]
     #[foreign_key(path = crate::modules::entity, table = entity, column = id, on_delete = Delete)]
     id: u32,
     pub rot_x: i16,
@@ -61,7 +61,12 @@ pub fn update_my_rotation(ctx: &ReducerContext, entity: Entity, new_rotation: En
                 }
                 Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
                     // Entity exists but has no rotation record - create one
-                    dsl.create_entity_rotation(entity.get_id(), new_rotation.rot_x, new_rotation.rot_y, new_rotation.rot_z)
+                    dsl.create_entity_rotation(CreateEntityRotation {
+                        id: entity.get_id(),
+                        rot_x: new_rotation.rot_x,
+                        rot_y: new_rotation.rot_y,
+                        rot_z: new_rotation.rot_z,
+                    })
                         .map_err(|e| format!("Failed to create entity rotation: {:?}", e))?;
                 }
                 Err(e) => {

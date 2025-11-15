@@ -2,8 +2,6 @@ use spacetimedb::{table, ReducerContext, Timestamp };
 use spacetimedsl::Wrapper;
 use spacetimedsl::{ dsl };
 
-use super::entity::*;
-use crate::modules::player::*;
 
 /* 
 Tables:
@@ -14,11 +12,11 @@ Tables:
 // Structure for the entity position table
 
 
-#[dsl(plural_name = entity_positions)]
+#[dsl(plural_name = entity_positions, method(update = true, delete = true))]
 #[table(name = entity_position, public)]
 pub struct EntityPosition {
     #[primary_key]
-    #[use_wrapper(path = crate::modules::player::PlayerAccountId)]
+    #[use_wrapper(crate::modules::player::PlayerAccountId)]
     #[foreign_key(path = crate::modules::entity, table = entity, column = id, on_delete = Delete)]
     id: u32,
     pub x: i32,
@@ -27,7 +25,7 @@ pub struct EntityPosition {
 }
 
 // Structure for the entity position table
-#[dsl(plural_name = entity_chunks)]
+#[dsl(plural_name = entity_chunks, method(update = true, delete = true))]
 #[table(name = entity_chunk, public)]
 pub struct EntityChunk {
     #[primary_key]

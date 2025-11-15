@@ -1,12 +1,12 @@
 use std::{time::Duration};
 use spacetimedb::{table, ReducerContext};
-use spacetimedsl::{dsl};
+use spacetimedsl::*;
 
 use crate::modules::chat::*;
 
 
 
-#[dsl(plural_name = chat_archive_timers)]
+#[dsl(plural_name = chat_archive_timers, method(update = false))]
 #[table(name = chat_archive_timer, scheduled(archive_old_global_chat_messages))]
 pub struct ChatArchiveTimer {
     #[primary_key]
@@ -22,10 +22,10 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
     let dsl = dsl(ctx); // Waiting for DSL implementation of timers
 
     // Once per minute, check if we have over our target for global chat messages
-    dsl.create_chat_archive_timer(
-        spacetimedb::ScheduleAt::Interval(Duration::from_secs(60).into()),
-        0,
-    )?;
+    dsl.create_chat_archive_timer(CreateChatArchiveTimer {
+        scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_secs(60).into()),
+        current_update: 0,
+    })?;
     Ok(())
 }
 
@@ -59,11 +59,11 @@ pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ChatAr
     // Archive old messages by moving them to the archive table
     for message in messages_to_move {
         // Create archive entry (created_at will be set automatically by DSL)
-        match dsl.create_global_chat_message_archive(
-            *message.get_identity(),
-            &message.get_username(),
-            &message.get_message(),
-        ) {
+        match dsl.create_global_chat_message_archive(CreateGlobalChatMessageArchive {
+            identity: *message.get_identity(),
+            username: message.get_username().clone(),
+            message: message.get_message().clone(),
+        }) {
             Ok(_) => {
                 // Successfully archived, now delete from main table
                 match dsl.delete_global_chat_message_by_id(&message.get_id()) {

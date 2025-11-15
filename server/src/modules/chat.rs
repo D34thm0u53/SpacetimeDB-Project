@@ -1,9 +1,9 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
-use spacetimedsl::dsl;
+use spacetimedsl::*;
 
 use crate::modules::player::*;
 
-#[dsl(plural_name = global_chat_messages)]
+#[dsl(plural_name = global_chat_messages, method(update = true))]
 #[table(name = global_chat_message, public)]
 pub struct GlobalChatMessage {
     #[primary_key]
@@ -20,7 +20,7 @@ pub struct GlobalChatMessage {
 
 /// Table for storing private messages sent between players.
 /// Each row represents a single message from sender to receiver, with content and timestamp.
-#[dsl(plural_name = direct_messages)]
+#[dsl(plural_name = direct_messages, method(update = true))]
 #[table(name = direct_message, public, index(name = sender_and_receiver, btree(columns = [sender_id, receiver_id])))]
 pub struct DirectMessage {
     #[primary_key]
@@ -28,11 +28,11 @@ pub struct DirectMessage {
     #[create_wrapper]
     id: u32,
     #[index(btree)]
-    #[use_wrapper(name = PlayerAccountId)]
+    #[use_wrapper(PlayerAccountId)]
     #[foreign_key(path = crate, column = id, table = player_account, on_delete = SetZero)]
     pub sender_id: u32, // FK to Player
     #[index(btree)]
-    #[use_wrapper(name = PlayerAccountId)]
+    #[use_wrapper(PlayerAccountId)]
     #[foreign_key(path = crate, column = id, table = player_account, on_delete = SetZero)]
     pub receiver_id: u32, // FK to Player
     pub message: String,
@@ -43,7 +43,7 @@ pub struct DirectMessage {
 
 
 
-#[dsl(plural_name = player_ignore_pairs, unique_index(name = ignorer_and_ignored))]
+#[dsl(plural_name = player_ignore_pairs, unique_index(name = ignorer_and_ignored), method(update = true))]
 #[table(name = player_ignore_pair, public, index(name = ignorer_and_ignored, btree(columns = [ignorer_identity, ignored_identity])))]
 pub struct PlayerIgnorePair {
     #[primary_key]
@@ -56,7 +56,7 @@ pub struct PlayerIgnorePair {
 }
 
 
-#[dsl(plural_name = global_mute_lists)]
+#[dsl(plural_name = global_mute_lists, method(update = true))]
 #[table(name = global_mute_list, public)]
 pub struct GlobalMuteList {
     #[primary_key]
@@ -73,7 +73,7 @@ pub struct GlobalMuteList {
 
 /// Archive table for global chat messages.
 /// Stores all messages purged from the main global_chat_message table.
-#[dsl(plural_name = global_chat_message_archives)]
+#[dsl(plural_name = global_chat_message_archives, method(update = true))]
 #[table(name = global_chat_message_archive, public)]
 pub struct GlobalChatMessageArchive {
     #[primary_key]
@@ -132,7 +132,10 @@ pub fn ignore_player(ctx: &ReducerContext, target_identity: Identity) -> Result<
         }
         Err(spacetimedsl::SpacetimeDSLError::NotFoundError { .. }) => {
             // No existing ignore relationship, proceed to create one
-            dsl.create_player_ignore_pair(ctx.sender, target_identity)
+            dsl.create_player_ignore_pair(CreatePlayerIgnorePair {
+                ignorer_identity: ctx.sender,
+                ignored_identity: target_identity,
+            })
                 .map_err(|e| format!("Failed to create ignore relationship: {:?}", e))?;
             
             log::debug!("Player {} ignored player {}", ctx.sender, target_identity);
@@ -185,7 +188,11 @@ pub fn send_global_chat(ctx: &ReducerContext, chat_message: String) -> Result<()
     //     return Err("You are globally muted and cannot send messages.".to_string());
     // }
     // else 
-        dsl.create_global_chat_message(ctx.sender, &get_username_by_identity(ctx, ctx.sender), &chat_message)?;
+        dsl.create_global_chat_message(CreateGlobalChatMessage {
+            identity: ctx.sender,
+            username: get_username_by_identity(ctx, ctx.sender),
+            message: chat_message,
+        })?;
         Ok(())
 }
 
@@ -201,6 +208,11 @@ pub fn send_private_chat(ctx: &ReducerContext, target_username: String, message:
     let receiver_account = dsl.get_player_account_by_username(&target_username)?;
     let sender_account = dsl.get_player_account_by_identity(&ctx.sender)?;
 
-    dsl.create_direct_message(sender_account.get_id(), receiver_account.get_id(), &message, ctx.timestamp)?;
+    dsl.create_direct_message(CreateDirectMessage {
+        sender_id: sender_account.get_id(),
+        receiver_id: receiver_account.get_id(),
+        message,
+        sent_at: ctx.timestamp,
+    })?;
     Ok(())
 }
