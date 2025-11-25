@@ -4,12 +4,18 @@ use spacetimedsl::*;
 use spacetimedsl::hook;
 
 use crate::modules::util::*;
-use crate::modules::entity::*;
+use crate::modules::entity::entity::*;
 use crate::modules::roles::*;
 use crate::modules::player_status::*;
-use crate::common::try_server_or_dev;
 
 
+use spacetimedb::{view, ViewContext};
+
+
+#[view(name = my_player, public)]
+fn my_player(ctx: &ViewContext) -> Option<PlayerAccount> {
+    ctx.db.player_account().identity().find(ctx.sender)
+}
 
 
 
@@ -20,14 +26,15 @@ use crate::common::try_server_or_dev;
 #[table(name = player_account, public)]
 pub struct PlayerAccount {
     #[primary_key]
+    #[index(btree)]
     #[auto_inc]
     #[create_wrapper]
     #[referenced_by(path = crate, table = online_player)]
     #[referenced_by(path = crate, table = offline_player)]
     #[referenced_by(path = crate::modules::roles, table = role)]
-    #[referenced_by(path = crate::modules::entity, table = entity)]
+    #[referenced_by(path = crate::modules::entity::entity, table = entity)]
     #[referenced_by(path = crate::modules::chat, table = direct_message)]
-    id: u32, // Auto-incremented ID for the player record
+    pub id: u32, // Auto-incremented ID for the player record
     #[unique]
     pub identity: Identity,
     #[unique]
@@ -43,6 +50,7 @@ pub struct PlayerAccount {
 #[table(name = online_player, public)]
 pub struct OnlinePlayer {
     #[primary_key]
+    #[index(btree)]
     #[use_wrapper(PlayerAccountId)]
     #[foreign_key(path = crate, column = id, table = player_account, on_delete = Error)]
     id: u32,
@@ -55,7 +63,8 @@ pub struct OnlinePlayer {
 #[dsl(plural_name = offline_players, method(update = true, delete = true))]
 #[table(name = offline_player, public)]
 pub struct OfflinePlayer {
-   #[primary_key]
+    #[primary_key]
+    #[index(btree)]
     #[use_wrapper(PlayerAccountId)]
     #[foreign_key(path = crate, column = id, table = player_account, on_delete = Delete)]
     id: u32,
@@ -65,8 +74,18 @@ pub struct OfflinePlayer {
 }
 
 //// Impls ///
- 
-// After insert hook
+
+/* Database event Triggers
+
+PlayerAccount:
+- onAfterPlayerAccountInsert: After a new PlayerAccount is created, create related records in linked tables.
+    - Create default Role records for the player.
+    - Create default PlayerStatus record for the player.
+    - Create Entity records: entity_rotation, entity_position, entity_chunk
+
+
+    
+*/
 #[hook]
 /// create related records for a player account.
 fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> Result<(), SpacetimeDSLError> {
