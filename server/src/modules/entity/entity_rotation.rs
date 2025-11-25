@@ -2,7 +2,7 @@ use spacetimedb::{table, ReducerContext };
 use spacetimedsl::{ dsl };
 
 
-use super::entity::*;
+use crate::modules::entity::entity::*;
 
 /* 
 Tables
@@ -15,8 +15,9 @@ Tables
 #[table(name = entity_rotation, public)]
 pub struct EntityRotation {
     #[primary_key]
+    #[index(btree)]
     #[use_wrapper(crate::modules::player::PlayerAccountId)]
-    #[foreign_key(path = crate::modules::entity, table = entity, column = id, on_delete = Delete)]
+    #[foreign_key(path = super::entity, table = entity, column = id, on_delete = Delete)]
     id: u32,
     pub rot_x: i16,
     pub rot_y: i16,

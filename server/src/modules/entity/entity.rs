@@ -3,11 +3,9 @@ use spacetimedsl::{ dsl, Wrapper };
 
 //pub mod definitions; // Definitions for initial ingested data.
 
-pub mod reducers; // SpacetimeDB Reducers for this file's structs.
 
-
-use crate::modules::entity_position::*;
-use crate::modules::entity_rotation::*;
+use super::entity_position::*;
+use super::entity_rotation::*;
 
 /* 
 Tables
@@ -27,10 +25,11 @@ Tables
 #[table(name = entity, public)]
 pub struct Entity {
     #[primary_key]
+    #[index(btree)]
     #[auto_inc]
     #[use_wrapper(crate::modules::player::PlayerAccountId)]
-    #[referenced_by(path = crate::modules::entity_position, table = entity_position)]
-    #[referenced_by(path = crate::modules::entity_rotation, table = entity_rotation)]
+    #[referenced_by(path = super::entity_position, table = entity_position)]
+    #[referenced_by(path = super::entity_rotation, table = entity_rotation)]
     #[foreign_key(path = crate::modules::player, column = id, table = player_account, on_delete = Delete)]
     id: u32,
 
