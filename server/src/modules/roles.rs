@@ -12,6 +12,7 @@ use crate::modules::common::*;
 pub struct Role {
     #[auto_inc]
     #[primary_key]
+    #[index(btree)]
     #[create_wrapper]
     id: u32,
     #[unique]
@@ -165,3 +166,25 @@ pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, request
 }
 
 
+// Check if a user has a specific role
+pub fn has_role(ctx: &ReducerContext, user_identity: &Identity, role_type: &RoleType) -> bool {
+    let dsl = dsl(ctx);
+
+    let user_account = dsl.get_player_account_by_identity(user_identity);
+    if user_account.is_ok() {
+        let user_roles = dsl.get_role_by_user_id(&user_account.unwrap().get_id());
+        if user_roles.is_ok() {
+            let roles = user_roles.unwrap();
+            match role_type {
+                RoleType::GuestUser => true, // All users are at least GuestUser
+                RoleType::TrustedUser => roles.is_trusted_user,
+                RoleType::GameAdmin => roles.is_game_admin,
+                RoleType::ServerAdmin => roles.is_server_administrator,
+            }
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
