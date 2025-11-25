@@ -7,6 +7,7 @@ use crate::modules::player::*;
 #[table(name = global_chat_message, public)]
 pub struct GlobalChatMessage {
     #[primary_key]
+    #[index(btree)]
     #[auto_inc]
     #[create_wrapper]
     id: u32,
@@ -24,6 +25,7 @@ pub struct GlobalChatMessage {
 #[table(name = direct_message, public, index(name = sender_and_receiver, btree(columns = [sender_id, receiver_id])))]
 pub struct DirectMessage {
     #[primary_key]
+    #[index(btree)]
     #[auto_inc]
     #[create_wrapper]
     id: u32,
