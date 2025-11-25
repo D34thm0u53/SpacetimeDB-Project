@@ -3,6 +3,7 @@ use spacetimedb::{table, ReducerContext};
 use spacetimedsl::*;
 
 use crate::modules::chat::*;
+use crate::modules::util::{get_config_u64, CONFIG_CHAT_MESSAGE_LIMIT};
 
 
 
@@ -29,6 +30,7 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
     Ok(())
 }
 
+
 #[spacetimedb::reducer]
 pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ChatArchiveTimer) -> Result<(), String> {
     // Security check: Ensure only the scheduler can call this reducer
@@ -38,19 +40,27 @@ pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ChatAr
 
     let dsl = dsl(ctx);
     
+    // Get the configurable message limit (defaults to 100 if not set)
+    let message_limit = get_config_u64(ctx, CONFIG_CHAT_MESSAGE_LIMIT).unwrap_or(100) as usize;
+    
     // Get all global chat messages
     let mut all_messages: Vec<_> = dsl.get_all_global_chat_messages().collect();
     
     // Sort by created_at timestamp (oldest first)
     all_messages.sort_by(|a, b| a.get_created_at().cmp(&b.get_created_at()));
 
-    // If we have 100 or fewer messages, no archiving needed
-    if all_messages.len() <= 100 {
+    // If we have message_limit or fewer messages, no archiving needed
+    if all_messages.len() <= message_limit {
+        spacetimedb::log::debug!(
+            "Chat archive check: {} messages (limit: {}), no archiving needed",
+            all_messages.len(),
+            message_limit
+        );
         return Ok(());
     }
 
-    // Calculate how many messages to archive (keep only the latest 100)
-    let messages_to_archive = all_messages.len() - 100;
+    // Calculate how many messages to archive (keep only the latest message_limit)
+    let messages_to_archive = all_messages.len() - message_limit;
     let messages_to_move = &all_messages[0..messages_to_archive];
     
     let mut archived_count = 0;
