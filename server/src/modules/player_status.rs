@@ -5,6 +5,7 @@ use spacetimedsl::dsl;
 #[table(name = player_status, public)]
 pub struct PlayerStatus {
     #[primary_key]
+    #[index(btree)]
     #[use_wrapper(crate::modules::player::PlayerAccountId)]
     id: u32,
     pub base_health: u32,   // 0-1000, typically 500
