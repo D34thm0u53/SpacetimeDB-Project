@@ -106,7 +106,12 @@ This means you provided a raw numeric type (like `u128`) where a wrapper type is
 
 ```rust
 // Referenced table
-#[dsl(plural_name = entities, method(update = true, delete = true))]
+#[dsl(plural_name = entities,
+    method(
+        update = true,
+        delete = true
+    )
+)]
 pub struct Entity {
     #[primary_key]
     #[create_wrapper]
@@ -115,7 +120,12 @@ pub struct Entity {
 }
 
 // Referencing table
-#[dsl(plural_name = positions, method(update = true, delete = true))]
+#[dsl(plural_name = positions,
+    method(
+        update = true,
+        delete = true
+    )
+)]
 pub struct Position {
     #[primary_key]
     #[create_wrapper]
@@ -304,7 +314,12 @@ Explicit control over generated methods, tied to field visibility from Automatic
 
 ```rust
 // Immutable audit log - all fields private, no modified_at/updated_at
-#[dsl(plural_name = audit_logs, method(update = false, delete = false))]
+#[dsl(plural_name = audit_logs,
+    method(
+        update = false,
+        delete = false
+    )
+)]
 pub struct AuditLog {
     #[primary_key]
     id: u128,
@@ -312,7 +327,12 @@ pub struct AuditLog {
 }
 
 // Updatable - has public field OR modified_at/updated_at
-#[dsl(plural_name = user_profiles, method(update = true, delete = false))]
+#[dsl(plural_name = user_profiles,
+    method(
+        update = true,
+        delete = false
+    )
+)]
 pub struct UserProfile {
     #[primary_key]
     id: u128,
@@ -321,7 +341,12 @@ pub struct UserProfile {
 }
 
 // Fully mutable
-#[dsl(plural_name = cache_entries, method(update = true, delete = true))]
+#[dsl(plural_name = cache_entries,
+    method(
+        update = true,
+        delete = true
+    )
+)]
 pub struct CacheEntry {
     #[primary_key]
     id: u128,
@@ -419,7 +444,12 @@ let csv = result.to_csv();  // Export for audit logs
 ### Self-Referencing Tables
 
 ```rust
-#[dsl(plural_name = entity_relationships3, method(update = true, delete = true))]
+#[dsl(plural_name = entity_relationships3,
+    method(
+        update = true,
+        delete = true
+    )
+)]
 pub struct EntityRelationship3 {
     #[primary_key]
     #[auto_inc]

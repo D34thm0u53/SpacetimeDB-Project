@@ -3,7 +3,11 @@ use spacetimedsl::*;
 
 use crate::modules::player::*;
 
-#[dsl(plural_name = global_chat_messages, method(update = true))]
+#[dsl(plural_name = global_chat_messages,
+    method(
+        update = true
+    )
+)]
 #[table(name = global_chat_message, public)]
 pub struct GlobalChatMessage {
     #[primary_key]
@@ -21,7 +25,11 @@ pub struct GlobalChatMessage {
 
 /// Table for storing private messages sent between players.
 /// Each row represents a single message from sender to receiver, with content and timestamp.
-#[dsl(plural_name = direct_messages, method(update = true))]
+#[dsl(plural_name = direct_messages,
+    method(
+        update = true
+    )
+)]
 #[table(name = direct_message, public, index(name = sender_and_receiver, btree(columns = [sender_id, receiver_id])))]
 pub struct DirectMessage {
     #[primary_key]
@@ -45,7 +53,14 @@ pub struct DirectMessage {
 
 
 
-#[dsl(plural_name = player_ignore_pairs, unique_index(name = ignorer_and_ignored), method(update = true))]
+#[dsl(plural_name = player_ignore_pairs,
+    unique_index(
+        name = ignorer_and_ignored
+    ),
+    method(
+        update = true
+    )
+)]
 #[table(name = player_ignore_pair, public, index(name = ignorer_and_ignored, btree(columns = [ignorer_identity, ignored_identity])))]
 pub struct PlayerIgnorePair {
     #[primary_key]
@@ -58,7 +73,11 @@ pub struct PlayerIgnorePair {
 }
 
 
-#[dsl(plural_name = global_mute_lists, method(update = true))]
+#[dsl(plural_name = global_mute_lists,
+    method(
+        update = true
+    )
+)]
 #[table(name = global_mute_list, public)]
 pub struct GlobalMuteList {
     #[primary_key]
@@ -75,7 +94,11 @@ pub struct GlobalMuteList {
 
 /// Archive table for global chat messages.
 /// Stores all messages purged from the main global_chat_message table.
-#[dsl(plural_name = global_chat_message_archives, method(update = true))]
+#[dsl(plural_name = global_chat_message_archives,
+    method(
+        update = true
+    )
+)]
 #[table(name = global_chat_message_archive, public)]
 pub struct GlobalChatMessageArchive {
     #[primary_key]

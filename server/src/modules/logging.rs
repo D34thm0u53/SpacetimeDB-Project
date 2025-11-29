@@ -5,7 +5,10 @@ use spacetimedsl::*;
 
 
 
-#[dsl(plural_name = event_logs, method(update = true))]
+#[dsl(plural_name = event_logs,
+    method(update = true
+    )
+)]
 #[table(name = event_log, public)]
 pub struct EventLog {
     #[primary_key]
@@ -17,7 +20,11 @@ pub struct EventLog {
     
 }
 
-#[dsl(plural_name = audit_logs, method(update = true))]
+#[dsl(plural_name = audit_logs,
+    method(
+        update = true
+    )
+)]
 #[table(name = audit_log, public)]
 pub struct AuditLog {
     #[primary_key]

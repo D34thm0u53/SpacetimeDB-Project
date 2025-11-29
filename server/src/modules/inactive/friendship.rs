@@ -5,7 +5,11 @@ use super::player::*;
 use super::common::*;
 
 
-#[dsl(plural_name = friendships, unique_index(name = party_one_and_party_two))]
+#[dsl(plural_name = friendships,
+    unique_index(
+        name = party_one_and_party_two
+    )
+)]
 #[table(name = friendship, public, index(name = party_one_and_party_two, btree(columns = [party_one, party_two])))]
 pub struct Friendship {
     #[primary_key]

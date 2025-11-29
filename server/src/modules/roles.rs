@@ -7,8 +7,15 @@ use crate::modules::player::*;
 use crate::modules::common::*;
 
 // Store User Roles
-#[dsl(plural_name = roles, method(update = true, delete = true))]
-#[table(name = role, public)]
+#[dsl(plural_name = roles,
+    method(
+        update = true,
+        delete = true
+    )
+)]
+#[table(name = role,
+    public
+)]
 pub struct Role {
     #[auto_inc]
     #[primary_key]
@@ -26,7 +33,11 @@ pub struct Role {
 
 
 
-#[dsl(plural_name = roles_audits, method(update = false))]
+#[dsl(plural_name = roles_audits,
+    method(
+        update = false
+    )
+)]
 #[table(name = roles_audit, private)]
 pub struct RolesAudit {
     #[primary_key]

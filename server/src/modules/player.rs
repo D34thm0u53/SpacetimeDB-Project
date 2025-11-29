@@ -20,8 +20,13 @@ fn my_player(ctx: &ViewContext) -> Option<PlayerAccount> {
 
 
 #[dsl(plural_name = player_accounts,
-    method(update = true, delete = true),
-    hook( after(insert))
+    method(
+        update = true,
+        delete = true
+    ),
+    hook(
+        after(insert)
+    )
 )]
 #[table(name = player_account, public)]
 pub struct PlayerAccount {
@@ -45,7 +50,10 @@ pub struct PlayerAccount {
 
 // online_player is a table that stores currently online players.
 #[dsl(plural_name = online_players,
-    method(update = true, delete = true)
+    method(
+        update = true,
+        delete = true
+    )
 )]
 #[table(name = online_player, public)]
 pub struct OnlinePlayer {
@@ -60,7 +68,12 @@ pub struct OnlinePlayer {
 }
 
 // offline_player is a table that stores currently offline players.
-#[dsl(plural_name = offline_players, method(update = true, delete = true))]
+#[dsl(plural_name = offline_players,
+    method(
+        update = true,
+        delete = true
+    )
+)]
 #[table(name = offline_player, public)]
 pub struct OfflinePlayer {
     #[primary_key]
