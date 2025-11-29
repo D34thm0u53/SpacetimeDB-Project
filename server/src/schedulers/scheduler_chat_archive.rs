@@ -7,8 +7,19 @@ use crate::modules::util::{get_config_u64, CONFIG_CHAT_MESSAGE_LIMIT};
 
 
 
-#[dsl(plural_name = chat_archive_timers, method(update = false))]
-#[table(name = chat_archive_timer, scheduled(archive_old_global_chat_messages))]
+#[dsl(
+    plural_name = chat_archive_timers,
+    method(
+        update = false, 
+        delete = true
+    )
+)]
+#[table(
+    name = chat_archive_timer,
+    scheduled(
+        archive_old_global_chat_messages
+    )
+)]
 pub struct ChatArchiveTimer {
     #[primary_key]
     #[auto_inc]

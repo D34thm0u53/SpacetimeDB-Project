@@ -4,14 +4,18 @@ use spacetimedsl::*;
 
 /* 
 Tables:
-
 - entity_position: Stores the position of entities (players) in the game world.
 - entity_chunk: Stores the chunk information for entities (players) in the game world.
 */
 // Structure for the entity position table
 
 
-#[dsl(plural_name = entity_positions, method(update = true, delete = true))]
+#[dsl(plural_name = entity_positions,
+    method(
+        update = true,
+        delete = true
+    )
+)]
 #[table(name = entity_position)]
 pub struct EntityPosition {
     #[primary_key]
@@ -25,8 +29,17 @@ pub struct EntityPosition {
 }
 
 // Structure for the entity position table
-#[dsl(plural_name = entity_chunks, method(update = true, delete = true))]
-#[table(name = entity_chunk, public, index(name = x, btree(columns = [chunk_x])), index(name = z, btree(columns = [chunk_z])))]
+#[dsl(plural_name = entity_chunks,
+    method(
+        update = true,
+        delete = true
+    )
+)]
+#[table(name = entity_chunk,
+    public,
+    index(name = x, btree(columns = [chunk_x])),
+    index(name = z, btree(columns = [chunk_z]))
+)]
 pub struct EntityChunk {
     #[primary_key]
     #[index(btree)]
