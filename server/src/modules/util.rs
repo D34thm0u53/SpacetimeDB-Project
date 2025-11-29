@@ -1,7 +1,11 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
 use spacetimedsl::*;
 
-#[dsl(plural_name = player_audits, method(update = true))]
+#[dsl(plural_name = player_audits,
+    method(
+        update = true
+    )
+)]
 #[table(name = player_audit, public)]
 pub struct PlayerAudit {
     #[primary_key]
@@ -29,7 +33,11 @@ pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) {
 
 /// Global configuration table for storing key-value pairs
 /// Supports different value types through enum variants
-#[dsl(plural_name = global_configs, method(update = true))]
+#[dsl(plural_name = global_configs,
+    method(
+        update = true
+    )
+)]
 #[table(name = global_config, public)]
 pub struct GlobalConfig {
     #[primary_key]

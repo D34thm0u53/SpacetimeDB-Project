@@ -1,7 +1,11 @@
 use spacetimedb::{table, Timestamp, ReducerContext};
 use spacetimedsl::dsl;
 
-#[dsl(plural_name = player_statuses, method(update = true))]
+#[dsl(plural_name = player_statuses,
+    method(
+        update = true
+    )
+)]
 #[table(name = player_status, public)]
 pub struct PlayerStatus {
     #[primary_key]

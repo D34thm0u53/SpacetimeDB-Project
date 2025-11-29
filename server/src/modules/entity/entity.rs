@@ -21,7 +21,12 @@ Tables
 
 
 // Structure for the entity table
-#[dsl(plural_name = entities, method(update = false, delete = true))]
+#[dsl(plural_name = entities,
+    method(
+        update = false,
+        delete = true
+    )
+)]
 #[table(name = entity, public)]
 pub struct Entity {
     #[primary_key]

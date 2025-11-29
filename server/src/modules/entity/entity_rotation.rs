@@ -11,7 +11,12 @@ Tables
 */
 
 // Structure for the entity position table
-#[dsl(plural_name = entity_rotations, method(update = true, delete = true))]
+#[dsl(plural_name = entity_rotations,
+    method(
+        update = true,
+        delete = true
+    )
+)]
 #[table(name = entity_rotation, public)]
 pub struct EntityRotation {
     #[primary_key]
