@@ -158,6 +158,38 @@ impl PlayerAccount {
         })
             .map_err(|e| format!("Failed to create offline player: {:?}", e))?;
         log::debug!("Moved player [{}] to offline", self.get_id());
+        
+
+        // DEV
+        /*
+        While we are in no/low player count, we should wind down resources if there are no other users connected.
+
+        Remove scheduled reducers:
+            Chunk Calculation
+            Message Archive
+        */
+        
+        use crate::schedulers::scheduler_chunks::*;
+        use crate::schedulers::scheduler_chat_archive::*;
+
+        let playercount = dsl.count_of_all_online_players();
+        log::debug!("Current online player count: {}", playercount);
+
+        if playercount > 0 {
+            return Ok(());
+        }
+
+        let chat_archive_timers = dsl.get_all_chat_archive_timers();
+        for timer in chat_archive_timers {
+            log::debug!("Deleting chat archive timer ID: {}", timer.get_id());
+            dsl.delete_chat_archive_timer_by_id(&timer.get_id())?;
+        }
+                
+        let chunk_timers = dsl.get_all_chunk_check_timers();
+        for timer in chunk_timers {
+            log::debug!("Deleting chunk check timer ID: {}", timer.get_id());
+            dsl.delete_chunk_check_timer_by_id(&timer.get_id())?;
+        }
         Ok(())
     }
 
@@ -189,6 +221,41 @@ impl PlayerAccount {
             id: self.get_id(),
             identity: self.identity,
         })?;
+
+        // Check if we need to spin up scheduled reducers
+
+        /// Chunk Check Timer
+        use crate::schedulers::scheduler_chunks::*;
+        use std::time::Duration;
+
+        let count_timers = dsl.count_of_all_chunk_check_timers();
+
+        spacetimedb::log::info!("Count of chunk check timers: {}", count_timers);
+
+        let chunk_timers = dsl.get_all_chunk_check_timers();
+        if chunk_timers.count() == 0 {
+            // Get the configurable chunk update interval (defaults to 5000ms if not set)
+            let interval_ms = get_config_u64(ctx, CONFIG_CHUNK_UPDATE_INTERVAL_MS).unwrap_or(5000);
+            
+            spacetimedb::log::info!("Initializing chunk update scheduler with interval: {}ms", interval_ms);
+
+            dsl.create_chunk_check_timer(CreateChunkCheckTimer {
+                scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_millis(interval_ms).into()),
+                current_update: 0,
+            })?;
+        }
+
+        /// Chat Archive Timer
+        use crate::schedulers::scheduler_chat_archive::*;
+        
+        let chat_timers = dsl.get_all_chat_archive_timers();
+        if chat_timers.count() == 0 {
+            // Initialize chat archive timer (default to 60 seconds interval)
+            dsl.create_chat_archive_timer(CreateChatArchiveTimer {
+                scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_secs(60).into()),
+                current_update: 0,
+            })?;    
+        }
         Ok(())
     }
 }
@@ -259,11 +326,13 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
             // On disconnect, move player to offline if they have a PlayerAccount
             let dsl = dsl(ctx);
             let player_account = dsl.get_player_account_by_identity(&ctx.sender);
-            if player_account.is_err() {
-                log::debug!("No PlayerAccount found for disconnected identity: {}", ctx.sender);
-                return;
-            }
-            let player_account = player_account.unwrap();
+            let player_account = match player_account {
+                Ok(account) => account,
+                Err(_) => {
+                    log::warn!("No PlayerAccount found for disconnected identity: {}", ctx.sender);
+                    return;
+                }
+            };
             match player_account.move_player_to_offline(ctx) {
                 Err(e) => {
                     log::error!("Failed to move player [{}] to offline: {}", player_account.get_id(), e);
