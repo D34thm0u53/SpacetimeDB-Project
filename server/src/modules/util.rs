@@ -76,6 +76,7 @@ pub const CONFIG_LOG_LEVEL: &str = "log_level";
 pub const CONFIG_XP_MULTIPLIER: &str = "xp_multiplier";
 pub const CONFIG_DAMAGE_MULTIPLIER: &str = "damage_multiplier";
 pub const CONFIG_CHAT_MESSAGE_LIMIT: &str = "chat_message_limit";
+pub const CONFIG_CHUNK_UPDATE_INTERVAL_MS: &str = "chunk_update_interval_ms";
 
 /// Initialize default global configurations
 pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
@@ -130,6 +131,15 @@ pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
         value: ConfigValue::UnsignedInteger(1),
         description: Some("Damage multiplier for combat".to_string()),
         scope: ConfigScope::User,
+        last_modified_by: Some(ctx.sender),
+        last_modified_at: ctx.timestamp,
+    })?;
+    
+    dsl.create_global_config(CreateGlobalConfig {
+        key: CONFIG_CHUNK_UPDATE_INTERVAL_MS.to_string(),
+        value: ConfigValue::UnsignedInteger(5000),
+        description: Some("Interval in milliseconds between chunk position calculations".to_string()),
+        scope: ConfigScope::Database,
         last_modified_by: Some(ctx.sender),
         last_modified_at: ctx.timestamp,
     })?;
