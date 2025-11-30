@@ -88,19 +88,9 @@ pub struct OfflinePlayer {
 
 //// Impls ///
 
+/// Creates related records (role, online status, player status, entity tree) for a new player account.
 #[hook]
-/// create related records for a player account.
 fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> Result<(), SpacetimeDSLError> {
-    /*  Revision History:
-        2025-09-28 - KS - Initial Version
-        2025-09-28 - KS - Added Role creation
-        2025-09-28 - KS - Added PlayerStatus creation
-        2025-09-28 - KS - Added Entity creation
-        2025-09-30 - KS - Added username normalization
-        2025-11-09 - KS - Migrated to onAfterPlayerAccountInsert
-    */
-
-    // Create default role profile
     create_default_roles(&dsl, row.get_id())?;
 
     // Move the player to online - Creating the OnlinePlayer record if it doesn't exist yet
@@ -121,22 +111,8 @@ fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> 
 
 
 impl PlayerAccount {
-    /// Moves the player to offline status.
+    /// Transitions player to offline status, removing from online table and cleaning up schedulers if no players remain.
     fn move_player_to_offline(&self, ctx: &ReducerContext) -> Result<(), String> {
-    //      For a given PlayerAccount, move them to offline status.
-    //      
-    //      If the player is already offline, this is a no-op.
-    //      If the player is online, we remove them from online and add to offline.
-    //      Players should not be able to reach this point without a valid PlayerAccount.
-    //      
-    //      Handle Race condition:
-    //      If the player disconnects while being processed, ensure they are fully logged out.
-    //      This means removing them from online if they are there, and ensuring they are not in
-    //      any other state (e.g., guest).
-    //       
-    //      Revision History:
-    //      2025-09-23 - KS - Initial Version
-
         let dsl = dsl(ctx);
 
         // Check if already offline
@@ -194,17 +170,8 @@ impl PlayerAccount {
         Ok(())
     }
 
-    /// Moves the player to online status.
+    /// Transitions player to online status, removing from offline table and starting schedulers.
     fn move_player_to_online(&self, ctx: &ReducerContext) -> Result<(), SpacetimeDSLError> {
-        // For a given PlayerAccount, move them to online status.
-        //
-        // If the player is already online, this is a no-op.
-        // If this is a new player, we create a new OnlinePlayer record.
-        // If the player is offline, we remove them from offline and add to online.
-        //
-        // Revision History:
-        // 2025-09-23 - KS - Initial Version
-
         use crate::schedulers::scheduler_chunks::wrap_create_chunk_check_timer;
         use crate::schedulers::scheduler_chat_archive::wrap_create_chat_archive_timer;
 
@@ -234,13 +201,8 @@ impl PlayerAccount {
     }
 }
 
-/// Validates a username string for use as a player's name.
-/// Normalizes the username by trimming whitespace and converting to lowercase.
+/// Normalizes username (NFKC, lowercase, trim) and validates length constraints.
 pub fn normalise_username(username: &String) -> Result<String, String> {
-    /* Revision History:
-    2025-09-23 - KS - Initial Version
-    */
-    
     use unicode_normalization::UnicodeNormalization;
     let normalized = username.nfkc().collect::<String>().to_lowercase();
     let trimmed = normalized.trim();
@@ -324,11 +286,8 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
     
 }
 
-/// Generic player account lookup function that returns the full PlayerAccount
+/// Retrieves a PlayerAccount by ID, identity, or username.
 pub fn get_player_account(ctx: &ReducerContext, lookup: PlayerAccountLookup) -> Option<PlayerAccount> {
-    /* Revision History:
-    2025-09-23 - KS - Initial Version
-    */
     let dsl = dsl(ctx);
     match lookup {
         PlayerAccountLookup::Id(id) => dsl.get_player_account_by_id(&id).ok(),
@@ -344,52 +303,34 @@ pub enum PlayerAccountLookup {
     Username(String),
 }
 
-/// Convenience function to get username by PlayerAccountId
+/// Retrieves the username for a player by their PlayerAccountId.
 pub fn get_username_by_id(ctx: &ReducerContext, id: PlayerAccountId) -> String {
-    /* Revision History:
-    2025-09-23 - KS - Initial Version
-    */
     get_player_account(ctx, PlayerAccountLookup::Id(id))
         .map(|account| account.get_username().to_string())
         .unwrap_or_default()
 }
 
-/// Convenience function to get username by identity    
+/// Retrieves the username for a player by their Identity.
 pub fn get_username_by_identity(ctx: &ReducerContext, identity: Identity) -> String {
-    /* Revision History:
-    2025-09-23 - KS - Initial Version
-    */
     get_player_account(ctx, PlayerAccountLookup::Identity(identity))
         .map(|account| account.get_username().to_string())
         .unwrap_or_default()
 }
 
-/// Convenience function to get Identity by username
+/// Retrieves the Identity for a player by their username.
 pub fn get_identity_by_username(ctx: &ReducerContext, username: String) -> Option<Identity> {
-    /* Revision History:
-    2025-09-23 - KS - Initial Version
-    */
     get_player_account(ctx, PlayerAccountLookup::Username(username))
         .map(|account| account.identity)
 }
 
 /// Checks if a PlayerAccount exists for the given identity.
 pub fn does_player_account_exist(ctx: &ReducerContext, identity: Identity) -> bool {
-    /* Revision History:
-    2025-09-23 - KS - Initial Version
-    */
     let dsl = dsl(ctx);
     dsl.get_player_account_by_identity(&identity).is_ok()
 }
 
-/// Create a new PlayerAccount record for a given Identity and username.
+/// Creates a new PlayerAccount with normalized username.
 fn create_player_account(ctx: &ReducerContext, identity: Identity, username: String) -> Result<PlayerAccount, String> {
-    /* Revision History:
-    2025-09-23 - KS - Initial Version
-    2025-09-30 - KS - Moved 'related' logic to create_related_records_for_playeraccount
-
-    */
-    
     let dsl = dsl(ctx);
 
     match normalise_username(&username) {
@@ -420,15 +361,13 @@ fn create_player_account(ctx: &ReducerContext, identity: Identity, username: Str
     Ok(player_account)
 }
 
-/// For a given PlayerAccount, related records in linked tables.
-
 
 /// Reducers
 
+/// Updates the username for the requesting player after validation and uniqueness check.
 #[spacetimedb::reducer]
-// Sets the username for the requesting player, ensuring uniqueness and validity.
 pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), String> {
-     let dsl = dsl(ctx);
+    let dsl = dsl(ctx);
 
     // Get a normalised version of the requested name.
     let normalised_username = normalise_username(&t_username)?;

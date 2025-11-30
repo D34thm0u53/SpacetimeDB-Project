@@ -205,26 +205,22 @@ pub fn unignore_player(ctx: &ReducerContext, target_identity: Identity) -> Resul
 
 
 //// Reducers ///
+/// Sends a message to the global chat channel.
 #[spacetimedb::reducer]
-pub fn send_global_chat(ctx: &ReducerContext, chat_message: String) -> Result<(), String> {
+pub fn send_global_chat(ctx: &ReducerContext, message: String) -> Result<(), String> {
     let dsl = dsl(ctx);
-    // Check if the sender is muted globally
-    // if dsl.get_global_mute_list_by_identity(&ctx.sender).is_some() {
-    //     return Err("You are globally muted and cannot send messages.".to_string());
-    // }
-    // else 
-        dsl.create_global_chat_message(CreateGlobalChatMessage {
-            identity: ctx.sender,
-            username: get_username_by_identity(ctx, ctx.sender),
-            message: chat_message,
-        })?;
-        Ok(())
+    
+    dsl.create_global_chat_message(CreateGlobalChatMessage {
+        identity: ctx.sender,
+        username: get_username_by_identity(ctx, ctx.sender),
+        message,
+    })?;
+    Ok(())
 }
 
 
 
-/// Reducer to send a private message from the sender to a target player by username.
-/// The message is always saved, even if the receiver is ignoring the sender (for audit purposes).
+/// Sends a private message to a player identified by username.
 #[spacetimedb::reducer]
 pub fn send_private_chat(ctx: &ReducerContext, target_username: String, message: String) -> Result<(), String> {
     let dsl = dsl(ctx);

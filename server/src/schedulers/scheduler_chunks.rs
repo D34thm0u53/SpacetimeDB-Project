@@ -26,6 +26,7 @@ pub struct ChunkCheckTimer {
 }
 
 
+/// Creates a chunk check timer if one doesn't already exist (runs at configured interval).
 pub fn wrap_create_chunk_check_timer(ctx: &ReducerContext) -> Result<(), String> {
     let dsl = dsl(ctx);
 

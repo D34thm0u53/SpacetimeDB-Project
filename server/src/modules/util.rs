@@ -152,7 +152,7 @@ pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
         last_modified_at: ctx.timestamp,
     })?;
     
-    spacetimedb::log::info!("Initialized default global configurations");
+    spacetimedb::log::debug!("Initialized default global configurations");
     Ok(())
 }
 
@@ -216,7 +216,7 @@ pub fn get_config_bool(ctx: &ReducerContext, key: &str) -> Option<bool> {
     }
 }
 
-/// Reducer to update a configuration value (admin only)
+/// Updates an existing configuration value (requires GameAdmin or ServerAdmin role).
 #[spacetimedb::reducer]
 pub fn update_global_config(
     ctx: &ReducerContext,
@@ -233,7 +233,7 @@ pub fn update_global_config(
         return Err("Only GameAdmin, ServerAdmin, or server can update global configuration".to_string());
     }
     
-    spacetimedb::log::info!("ADMIN ACTION: User {} attempting to update config '{}'", ctx.sender, key);
+    spacetimedb::log::debug!("ADMIN ACTION: User {} attempting to update config '{}'", ctx.sender, key);
     
     // Try to find existing config
     match dsl.get_global_config_by_key(&key) {
@@ -257,7 +257,7 @@ pub fn update_global_config(
     }
 }
 
-/// Reducer to create a new configuration value (admin only)
+/// Creates a new configuration entry (requires GameAdmin or ServerAdmin role).
 #[spacetimedb::reducer]
 pub fn create_global_config_entry(
     ctx: &ReducerContext,
@@ -276,7 +276,7 @@ pub fn create_global_config_entry(
         return Err("Only GameAdmin, ServerAdmin, or server can update global configuration".to_string());
     }
     
-    spacetimedb::log::info!("ADMIN ACTION: User {} attempting to create config '{}'", ctx.sender, key);
+    spacetimedb::log::debug!("ADMIN ACTION: User {} attempting to create config '{}'", ctx.sender, key);
     
     // Check if config already exists
     if dsl.get_global_config_by_key(&key).is_ok() {
