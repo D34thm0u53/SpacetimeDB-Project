@@ -38,6 +38,7 @@ pub struct AuditLog {
 }
 
 
+/// Records an event to the event_log table.
 pub fn log_event(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
     
@@ -45,12 +46,12 @@ pub fn log_event(ctx: &ReducerContext, description: String) {
         user: ctx.sender,
         description,
     }) {
-        // You can log the error or handle it as needed
         log::error!("Failed to create event log: {:?}", e);
     }
 }
 
 
+/// Records an audit event to the audit_log table.
 pub fn log_audit(ctx: &ReducerContext, description: String) {
     let dsl = dsl(ctx);
 
@@ -60,5 +61,4 @@ pub fn log_audit(ctx: &ReducerContext, description: String) {
     }) {
         log::error!("Failed to create audit log: {:?}", e);
     }
-
 }

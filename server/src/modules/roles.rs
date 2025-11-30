@@ -177,11 +177,11 @@ pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, request
 }
 
 
-// Check if a user has a specific role
-pub fn has_role(ctx: &ReducerContext, user_identity: &Identity, role_type: &RoleType) -> bool {
+/// Checks if a player has a specific role.
+pub fn has_role(ctx: &ReducerContext, identity: &Identity, role_type: &RoleType) -> bool {
     let dsl = dsl(ctx);
 
-    let user_account = dsl.get_player_account_by_identity(user_identity);
+    let user_account = dsl.get_player_account_by_identity(identity);
     if user_account.is_ok() {
         let user_roles = dsl.get_role_by_user_id(&user_account.unwrap().get_id());
         if user_roles.is_ok() {

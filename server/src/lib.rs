@@ -9,23 +9,21 @@ use modules::*;
 pub mod schedulers;
 
 
+/// Initializes the database on first startup, loading default configurations.
 #[reducer(init)]
-// Called when a client connects to a SpacetimeDB database server
 fn database_init(ctx: &ReducerContext) {
-    // Initialize global configuration
     util::init_default_configs(ctx)
         .expect("Failed to initialize global configuration");
-
 }
 
+/// Handles client connection events, creating or updating player accounts.
 #[reducer(client_connected)]
-// Called when a client connects to a SpacetimeDB database server
 fn client_connected(ctx: &ReducerContext) {
     handle_player_connection_event(ctx, "connect");
 }
 
+/// Handles client disconnection events, moving players to offline status.
 #[reducer(client_disconnected)]
-// Called when a client disconnects from SpacetimeDB database server
 fn client_disconnected(ctx: &ReducerContext) {
     handle_player_connection_event(ctx, "disconnect");
 }

@@ -23,6 +23,7 @@ pub struct PlayerStatus {
 
 impl PlayerStatus {
 
+    /// Creates a default PlayerStatus record with 500 health and 500 shield.
     pub fn create_default_state(dsl: &spacetimedsl::DSL, id : crate::modules::player::PlayerAccountId) -> Self {
         dsl.create_player_status(CreatePlayerStatus {
             id,
@@ -36,10 +37,12 @@ impl PlayerStatus {
     }
 
 
+    /// Returns the total health (base health + shield).
     pub fn total_health(&self) -> u32 {
         self.base_health + self.shield
     }
 
+    /// Returns true if the player has any health remaining.
     pub fn is_alive(&self) -> bool {
         self.total_health() > 0
     }
@@ -52,8 +55,7 @@ impl PlayerStatus {
 
 
 
-/// Applies damage from an attacker to a victim, updating shield and health accordingly.
-/// Damage is absorbed by shield first, then by base_health. If both reach zero, the player is considered dead.
+/// Applies damage to a player, prioritizing shield absorption before affecting base health.
 #[spacetimedb::reducer]
 pub fn apply_damage(ctx: &ReducerContext, victim: crate::modules::player::PlayerAccountId, damage: u32) {
     log::debug!("Applying {} damage to player {}", damage, victim);

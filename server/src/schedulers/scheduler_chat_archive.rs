@@ -30,6 +30,7 @@ pub struct ChatArchiveTimer {
 }
 
 
+/// Creates a chat archive timer if one doesn't already exist (runs every 60 seconds).
 pub fn wrap_create_chat_archive_timer(ctx: &ReducerContext) -> Result<(), String> {
     let dsl = dsl(ctx);
 
@@ -48,6 +49,7 @@ pub fn wrap_create_chat_archive_timer(ctx: &ReducerContext) -> Result<(), String
     Ok(())
 }
 
+/// Scheduled reducer that archives global chat messages exceeding the configured limit.
 #[reducer]
 pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ChatArchiveTimer) -> Result<(), String> {
     // Security check: Ensure only the scheduler can call this reducer
