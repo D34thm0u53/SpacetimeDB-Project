@@ -1,4 +1,4 @@
-use spacetimedb::{table, Identity, ReducerContext, Timestamp};
+use spacetimedb::{table, Identity, ReducerContext, Timestamp, view, ViewContext};
 use spacetimedsl::*;
 
 use crate::modules::player::*;
@@ -67,6 +67,7 @@ pub struct PlayerIgnorePair {
     #[auto_inc]
     #[create_wrapper]
     id: u32,
+    #[index(btree)]
     pub ignorer_identity: Identity, // FK to Player
     pub ignored_identity: Identity, // FK to Player
     created_at: Timestamp,
@@ -112,32 +113,44 @@ pub struct GlobalChatMessageArchive {
 }
 
 
-use spacetimedb::{client_visibility_filter, Filter};
-#[client_visibility_filter]
-const PLAYER_IGNORE_PAIR_FILTER: Filter = Filter::Sql(
-    "SELECT * FROM player_ignore_pair WHERE ignorer_identity = :sender",
-);
+/// View to get the player's own ignore list.
+#[view(name = my_ignore_list, public)]
+fn my_ignore_list(ctx: &ViewContext) -> Vec<PlayerIgnorePair> {
+    ctx.db.player_ignore_pair()
+        .ignorer_identity()
+        .filter(&ctx.sender)
+        .collect()
+}
 
+/// View to get direct messages where the caller is the receiver.
+#[view(name = my_received_messages, public)]
+fn my_received_messages(ctx: &ViewContext) -> Vec<DirectMessage> {
+    // Get the viewer's player account
+    let viewer_account = match ctx.db.player_account().identity().find(&ctx.sender) {
+        Some(account) => account,
+        None => return Vec::new(),
+    };
+    
+    ctx.db.direct_message()
+        .receiver_id()
+        .filter(&viewer_account.id)
+        .collect()
+}
 
-// Filter to only show Private messages, where the receiver is the client.
-#[client_visibility_filter]
-const PRIVATE_CHAT_MESSAGE_RECEIVER_FILTER: Filter = Filter::Sql(
-    "SELECT dm.*
-    FROM direct_message dm
-    JOIN player_account ON dm.sender_id = player_account.id
-    WHERE dm.receiver_id = player_account.id
-    AND player_account.identity = :sender",
-);
-
-// Filter to only show Private messages, where the sender is the client.
-#[client_visibility_filter]
-const PRIVATE_CHAT_MESSAGE_SENDER_FILTER: Filter = Filter::Sql(
-    "SELECT dm.*
-    FROM direct_message dm
-    JOIN player_account ON dm.sender_id = player_account.id
-    WHERE dm.sender_id = player_account.id
-    AND player_account.identity = :sender",
-);
+/// View to get direct messages where the caller is the sender.
+#[view(name = my_sent_messages, public)]
+fn my_sent_messages(ctx: &ViewContext) -> Vec<DirectMessage> {
+    // Get the viewer's player account
+    let viewer_account = match ctx.db.player_account().identity().find(&ctx.sender) {
+        Some(account) => account,
+        None => return Vec::new(),
+    };
+    
+    ctx.db.direct_message()
+        .sender_id()
+        .filter(&viewer_account.id)
+        .collect()
+}
     
 
 
