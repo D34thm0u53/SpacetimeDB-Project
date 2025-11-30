@@ -1,15 +1,7 @@
 use spacetimedb::*;
 use spacetimedsl::*;
 
-
-/* 
-Tables:
-- entity_position: Stores the position of entities (players) in the game world.
-- entity_chunk: Stores the chunk information for entities (players) in the game world.
-*/
-// Structure for the entity position table
-
-
+/// Position information for entities (players).
 #[dsl(plural_name = entity_positions,
     method(
         update = true,
@@ -28,7 +20,7 @@ pub struct EntityPosition {
     pub z: i32
 }
 
-// Structure for the entity position table
+/// Chunk information for entities (players).
 #[dsl(plural_name = entity_chunks,
     method(
         update = true,

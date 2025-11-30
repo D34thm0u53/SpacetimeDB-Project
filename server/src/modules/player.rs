@@ -88,17 +88,6 @@ pub struct OfflinePlayer {
 
 //// Impls ///
 
-/* Database event Triggers
-
-PlayerAccount:
-- onAfterPlayerAccountInsert: After a new PlayerAccount is created, create related records in linked tables.
-    - Create default Role records for the player.
-    - Create default PlayerStatus record for the player.
-    - Create Entity records: entity_rotation, entity_position, entity_chunk
-
-
-    
-*/
 #[hook]
 /// create related records for a player account.
 fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> Result<(), SpacetimeDSLError> {
@@ -129,7 +118,6 @@ fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> 
     Ok(())
 
 }
-
 
 
 impl PlayerAccount {
@@ -217,6 +205,9 @@ impl PlayerAccount {
         // Revision History:
         // 2025-09-23 - KS - Initial Version
 
+        use crate::schedulers::scheduler_chunks::wrap_create_chunk_check_timer;
+        use crate::schedulers::scheduler_chat_archive::wrap_create_chat_archive_timer;
+
         let dsl = dsl(ctx);
         // Check if already online
         if dsl.get_online_player_by_id(&self.get_id()).is_ok() {
@@ -235,41 +226,11 @@ impl PlayerAccount {
             identity: self.identity,
         })?;
 
-        // Check if we need to spin up scheduled reducers
-
-        /// Chunk Check Timer
-        use crate::schedulers::scheduler_chunks::*;
-        use std::time::Duration;
-
-        let count_timers = dsl.count_of_all_chunk_check_timers();
-
-        spacetimedb::log::info!("Count of chunk check timers: {}", count_timers);
-
-        let chunk_timers = dsl.get_all_chunk_check_timers();
-        if chunk_timers.count() == 0 {
-            // Get the configurable chunk update interval (defaults to 5000ms if not set)
-            let interval_ms = get_config_u64(ctx, CONFIG_CHUNK_UPDATE_INTERVAL_MS).unwrap_or(5000);
-            
-            spacetimedb::log::info!("Initializing chunk update scheduler with interval: {}ms", interval_ms);
-
-            dsl.create_chunk_check_timer(CreateChunkCheckTimer {
-                scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_millis(interval_ms).into()),
-                current_update: 0,
-            })?;
-        }
-
-        /// Chat Archive Timer
-        use crate::schedulers::scheduler_chat_archive::*;
-        
-        let chat_timers = dsl.get_all_chat_archive_timers();
-        if chat_timers.count() == 0 {
-            // Initialize chat archive timer (default to 60 seconds interval)
-            dsl.create_chat_archive_timer(CreateChatArchiveTimer {
-                scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_secs(60).into()),
-                current_update: 0,
-            })?;    
-        }
+        // Start a scheduled reducer if not running
+        let _ = wrap_create_chunk_check_timer(ctx);        
+        let _ = wrap_create_chat_archive_timer(ctx);
         Ok(())
+
     }
 }
 
