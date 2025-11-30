@@ -26,14 +26,17 @@ pub struct ChunkCheckTimer {
 }
 
 
-pub fn init(ctx: &ReducerContext) -> Result<(), String> {
+pub fn wrap_create_chunk_check_timer(ctx: &ReducerContext) -> Result<(), String> {
     let dsl = dsl(ctx);
 
-    // Get the configurable chunk update interval (defaults to 5000ms if not set)
-    let interval_ms = get_config_u64(ctx, CONFIG_CHUNK_UPDATE_INTERVAL_MS).unwrap_or(5000);
+    // Check if a chunk check timer already exists
+    let existing_timers: Vec<_> = dsl.get_all_chunk_check_timers().collect();
     
-    spacetimedb::log::info!("Initializing chunk update scheduler with interval: {}ms", interval_ms);
-
+    if !existing_timers.is_empty() {
+        return Ok(());
+    }
+    // Once per configured interval, update player chunks based on their positions
+    let interval_ms = get_config_u64(ctx, CONFIG_CHUNK_UPDATE_INTERVAL_MS).unwrap_or(5000);
     dsl.create_chunk_check_timer(CreateChunkCheckTimer {
         scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_millis(interval_ms).into()),
         current_update: 0,

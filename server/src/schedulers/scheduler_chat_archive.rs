@@ -1,5 +1,5 @@
 use std::{time::Duration};
-use spacetimedb::{table, ReducerContext};
+use spacetimedb::{table, ReducerContext, reducer};
 use spacetimedsl::*;
 
 use crate::modules::chat::*;
@@ -30,8 +30,15 @@ pub struct ChatArchiveTimer {
 }
 
 
-pub fn init(ctx: &ReducerContext) -> Result<(), String> {
-    let dsl = dsl(ctx); // Waiting for DSL implementation of timers
+pub fn wrap_create_chat_archive_timer(ctx: &ReducerContext) -> Result<(), String> {
+    let dsl = dsl(ctx);
+
+    // Check if a chat archive timer already exists
+    let existing_timers: Vec<_> = dsl.get_all_chat_archive_timers().collect();
+    
+    if !existing_timers.is_empty() {
+        return Ok(());
+    }
 
     // Once per minute, check if we have over our target for global chat messages
     dsl.create_chat_archive_timer(CreateChatArchiveTimer {
@@ -41,8 +48,7 @@ pub fn init(ctx: &ReducerContext) -> Result<(), String> {
     Ok(())
 }
 
-
-#[spacetimedb::reducer]
+#[reducer]
 pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ChatArchiveTimer) -> Result<(), String> {
     // Security check: Ensure only the scheduler can call this reducer
     if ctx.sender != ctx.identity() {
