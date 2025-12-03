@@ -1,16 +1,9 @@
-use spacetimedb::{table, ReducerContext };
-use spacetimedsl::{ dsl };
-
+use spacetimedb::{table, ReducerContext};
+use spacetimedsl::dsl;
 
 use crate::modules::entity::entity::*;
 
-/* 
-Tables
-- entity_rotation
-
-*/
-
-// Structure for the entity position table
+/// Rotation information for entities.
 #[dsl(plural_name = entity_rotations,
     method(
         update = true,
@@ -21,7 +14,7 @@ Tables
 pub struct EntityRotation {
     #[primary_key]
     #[index(btree)]
-    #[use_wrapper(crate::modules::player::PlayerAccountId)]
+    #[use_wrapper(super::entity::EntityId)]
     #[foreign_key(path = super::entity, table = entity, column = id, on_delete = Delete)]
     id: u32,
     pub rot_x: i16,
@@ -29,14 +22,9 @@ pub struct EntityRotation {
     pub rot_z: i16,
 }
 
-/* 
-Recducers
-- update_my_rotation: Updates the rotation of the player in the entity_rotation table.
-    # Performs a check to see if the rotation has changed.
-    # If it has not changed, it will still update the record to refresh the modified_at timestamp.
-
-*/
-
+/// Updates the rotation of an entity in the entity_rotation table.
+/// Performs a check to see if the rotation has changed.
+/// If it has not changed, returns early without updating.
 #[spacetimedb::reducer]
 pub fn update_my_rotation(ctx: &ReducerContext, entity: Entity, new_rotation: EntityRotation) -> Result<(), String> {
     let dsl = dsl(ctx);
