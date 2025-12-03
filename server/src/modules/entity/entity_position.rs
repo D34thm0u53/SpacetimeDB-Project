@@ -1,7 +1,10 @@
 use spacetimedb::*;
 use spacetimedsl::*;
 
-/// Position information for entities (players).
+use super::entity::EntityId;
+use super::entity::entity__view;
+
+/// Position information for entities.
 #[dsl(plural_name = entity_positions,
     method(
         update = true,
@@ -12,15 +15,15 @@ use spacetimedsl::*;
 pub struct EntityPosition {
     #[primary_key]
     #[index(btree)]
-    #[use_wrapper(crate::modules::player::PlayerAccountId)]
+    #[use_wrapper(super::entity::EntityId)]
     #[foreign_key(path = super::entity, table = entity, column = id, on_delete = Delete)]
     id: u32,
     pub x: i32,
     pub y: i32,
-    pub z: i32
+    pub z: i32,
 }
 
-/// Chunk information for entities (players).
+/// Chunk information for entities.
 #[dsl(plural_name = entity_chunks,
     method(
         update = true,
@@ -35,12 +38,15 @@ pub struct EntityPosition {
 pub struct EntityChunk {
     #[primary_key]
     #[index(btree)]
-    #[use_wrapper(crate::modules::player::PlayerAccountId)]
+    #[use_wrapper(super::entity::EntityId)]
+    #[foreign_key(path = super::entity, table = entity, column = id, on_delete = Delete)]
     id: u32,
-    pub chunk_x: u32, // New: player's current chunk x
-    
-    pub chunk_z: u32, // New: player's current chunk z
-    modified_at: Timestamp // When the position was last modified
+    /// Entity's current chunk X coordinate
+    pub chunk_x: u32,
+    /// Entity's current chunk Z coordinate
+    pub chunk_z: u32,
+    /// When the chunk was last modified
+    modified_at: Timestamp,
 }
 
 
@@ -48,9 +54,8 @@ pub struct EntityChunk {
 pub fn update_my_position(ctx: &ReducerContext, new_position: EntityPosition) -> Result<(), String> {
     let dsl = dsl(ctx);
 
-    use crate::modules::player::PlayerAccountId;
-    let player_id = PlayerAccountId::new(new_position.id);
-    let mut position_record: EntityPosition = dsl.get_entity_position_by_id(player_id)?;
+    let entity_id = EntityId::new(new_position.id);
+    let mut position_record: EntityPosition = dsl.get_entity_position_by_id(entity_id)?;
 
     // Check if position has actually changed to avoid unnecessary updates
     if position_record.x == new_position.x
@@ -71,24 +76,34 @@ pub fn update_my_position(ctx: &ReducerContext, new_position: EntityPosition) ->
 
 
 use crate::modules::player::*;
-// View to get entity chunks within a 3-chunk radius of the viewer
+
+/// View to get entity chunks within a 3-chunk radius of the viewer.
+/// Finds the viewer's player-owned entity, then returns nearby chunks.
 #[view(name = nearby_entity_chunks, public)]
 pub fn nearby_entity_chunks(ctx: &ViewContext) -> Vec<EntityChunk> {
-    // Log the viewer attempting to access nearby chunks
     log::debug!("nearby_entity_chunks called by identity: {}", ctx.sender);
 
-    // Get the viewer's position first to determine their chunk
+    // Get the viewer's player account
     let viewer = match ctx.db.player_account().identity().find(&ctx.sender) {
         Some(v) => v,
         None => {
             return Vec::new();
         }
     };
-    
+
     log::debug!("Viewer found: player_id={}", viewer.id);
-    
-    // Get viewer's current chunk position
-    let viewer_chunk = match ctx.db.entity_chunk().id().find(&viewer.id) {
+
+    // Find the entity owned by this player
+    let viewer_entity = match ctx.db.entity().owner_id().filter(&viewer.id).next() {
+        Some(entity) => entity,
+        None => {
+            log::debug!("No entity found for player_id={}", viewer.id);
+            return Vec::new();
+        }
+    };
+
+    // Get viewer's current chunk position using the entity's ID
+    let viewer_chunk = match ctx.db.entity_chunk().id().find(&viewer_entity.get_id().value()) {
         Some(chunk) => chunk,
         None => {
             return Vec::new();

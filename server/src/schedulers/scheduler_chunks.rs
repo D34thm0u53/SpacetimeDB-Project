@@ -1,8 +1,9 @@
-use std::{time::Duration};
+use std::time::Duration;
 use spacetimedb::*;
 use spacetimedsl::*;
 
 use crate::modules::player::*;
+use crate::modules::entity::entity::*;
 use crate::modules::entity::entity_position::*;
 use crate::modules::util::{get_config_u64, CONFIG_CHUNK_UPDATE_INTERVAL_MS};
 
@@ -43,41 +44,46 @@ pub fn wrap_create_chunk_check_timer(ctx: &ReducerContext) -> Result<(), String>
     Ok(())
 }
 
-/// Reducer to calculate and update the current chunks for all online players entities based on their positions
+/// Reducer to calculate and update the current chunks for all online players' entities based on their positions.
 #[spacetimedb::reducer]
 pub fn calculate_current_chunks(ctx: &ReducerContext, _timer: ChunkCheckTimer) -> Result<(), String> {
     let dsl = dsl(ctx);
 
-
     for player in dsl.get_all_online_players() {
+        let player_id = player.get_id().value();
 
-            // Convert the field we want.
-            use crate::modules::player::PlayerAccountId;
-            let player_id = PlayerAccountId::from(&player.get_id());
+        // Find the entity owned by this player
+        let entity = match dsl.get_entities_by_owner_id(&player_id).next() {
+            Some(e) => e,
+            None => continue, // Skip if player has no entity
+        };
 
-            // Get the entity position for the player
-            let entity = match dsl.get_entity_position_by_id(&player_id) {
-                Ok(e) => e,
-                Err(_) => continue, // Skip if entity not found
-            };
+        let entity_id = entity.get_id();
 
-            // Get the entity chunk for the player
-            let mut entity_chunk: EntityChunk = match dsl.get_entity_chunk_by_id(&entity.get_id()) {
-                Ok(chunk) => chunk,
-                Err(_) => {
+        // Get the entity position
+        let position = match dsl.get_entity_position_by_id(&entity_id) {
+            Ok(pos) => pos,
+            Err(_) => continue, // Skip if position not found
+        };
+
+        // Get or create the entity chunk
+        let mut entity_chunk: EntityChunk = match dsl.get_entity_chunk_by_id(&entity_id) {
+            Ok(chunk) => chunk,
+            Err(_) => {
                 // Create a new entity chunk if one doesn't exist
                 dsl.create_entity_chunk(CreateEntityChunk {
-                    id: entity.get_id().clone(),
-                    chunk_x: (entity.get_x() / 16) as u32,
-                    chunk_z: (entity.get_y() / 16) as u32,
+                    id: entity_id.clone(),
+                    chunk_x: (position.get_x() / 16) as u32,
+                    chunk_z: (position.get_y() / 16) as u32,
                 })?
-                }
-            };
+            }
+        };
 
-            entity_chunk.set_chunk_x((entity.get_x() / 16) as u32);
-            entity_chunk.set_chunk_z((entity.get_y() / 16) as u32);
+        // Update chunk coordinates based on position
+        entity_chunk.set_chunk_x((position.get_x() / 16) as u32);
+        entity_chunk.set_chunk_z((position.get_y() / 16) as u32);
 
-            dsl.update_entity_chunk_by_id(entity_chunk)?;
-    }   
+        dsl.update_entity_chunk_by_id(entity_chunk)?;
+    }
     Ok(())
 }

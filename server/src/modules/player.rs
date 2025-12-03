@@ -37,7 +37,6 @@ pub struct PlayerAccount {
     #[referenced_by(path = crate, table = online_player)]
     #[referenced_by(path = crate, table = offline_player)]
     #[referenced_by(path = crate::modules::roles, table = role)]
-    #[referenced_by(path = crate::modules::entity::entity, table = entity)]
     #[referenced_by(path = crate::modules::chat, table = direct_message)]
     pub id: u32, // Auto-incremented ID for the player record
     #[unique]
@@ -103,7 +102,7 @@ fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> 
     //  entity_rotation
     //  entity_position
     //  entity_chunk
-    create_entity_tree(dsl.ctx(), EntityType::Player)
+    create_entity_tree(dsl.ctx(), EntityType::Player, row.get_id().value())
         .map_err(|e| spacetimedsl::SpacetimeDSLError::Error(e))?;
 
     Ok(())
