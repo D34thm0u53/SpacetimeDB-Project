@@ -86,7 +86,7 @@ pub fn update_my_position(ctx: &ReducerContext, new_position: EntityPosition) ->
     // Instead of updating directly, write to the incoming buffer table
     // The scheduler will process these and update the main table
     dsl.create_entity_position_incoming(CreateEntityPositionIncoming {
-        entity_id: entity_id,
+        entity_id,
         x: new_position.x,
         y: new_position.y,
         z: new_position.z,
