@@ -148,6 +148,7 @@ impl PlayerAccount {
         
         use crate::schedulers::scheduler_chunks::*;
         use crate::schedulers::scheduler_chat_archive::*;
+        use crate::schedulers::scheduler_position_updates::*;
 
         let playercount = dsl.count_of_all_online_players();
         log::debug!("Current online player count: {}", playercount);
@@ -167,6 +168,12 @@ impl PlayerAccount {
             log::debug!("Deleting chunk check timer ID: {}", timer.get_id());
             dsl.delete_chunk_check_timer_by_id(&timer.get_id())?;
         }
+        
+        let position_update_timers = dsl.get_all_position_update_timers();
+        for timer in position_update_timers {
+            log::debug!("Deleting position update timer ID: {}", timer.get_id());
+            dsl.delete_position_update_timer_by_id(&timer.get_id())?;
+        }
         Ok(())
     }
 
@@ -174,6 +181,7 @@ impl PlayerAccount {
     fn move_player_to_online(&self, ctx: &ReducerContext) -> Result<(), SpacetimeDSLError> {
         use crate::schedulers::scheduler_chunks::wrap_create_chunk_check_timer;
         use crate::schedulers::scheduler_chat_archive::wrap_create_chat_archive_timer;
+        use crate::schedulers::scheduler_position_updates::wrap_create_position_update_timer;
 
         let dsl = dsl(ctx);
         // Check if already online
@@ -193,9 +201,10 @@ impl PlayerAccount {
             identity: self.identity,
         })?;
 
-        // Start a scheduled reducer if not running
+        // Start scheduled reducers if not running
         let _ = wrap_create_chunk_check_timer(ctx);        
         let _ = wrap_create_chat_archive_timer(ctx);
+        let _ = wrap_create_position_update_timer(ctx);
         Ok(())
 
     }
