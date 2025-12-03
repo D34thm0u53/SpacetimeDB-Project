@@ -23,6 +23,30 @@ pub struct EntityPosition {
     pub z: i32,
 }
 
+/// Incoming position updates buffer table.
+/// Stores position updates as they arrive from clients before batch processing.
+#[dsl(plural_name = entity_positions_incoming,
+    method(
+        update = true,
+        delete = true
+    )
+)]
+#[table(name = entity_position_incoming, public)]
+pub struct EntityPositionIncoming {
+    #[primary_key]
+    #[auto_inc]
+    #[create_wrapper]
+    id: u64,
+    #[index(btree)]
+    #[use_wrapper(super::entity::EntityId)]
+    #[foreign_key(path = super::entity, table = entity, column = id, on_delete = Delete)]
+    entity_id: u32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    created_at: Timestamp,
+}
+
 /// Chunk information for entities.
 #[dsl(plural_name = entity_chunks,
     method(
@@ -55,22 +79,20 @@ pub fn update_my_position(ctx: &ReducerContext, new_position: EntityPosition) ->
     let dsl = dsl(ctx);
 
     let entity_id = EntityId::new(new_position.id);
-    let mut position_record: EntityPosition = dsl.get_entity_position_by_id(entity_id)?;
+    
+    // Verify the entity exists before inserting into incoming buffer
+    let _position_record: EntityPosition = dsl.get_entity_position_by_id(&entity_id)?;
 
-    // Check if position has actually changed to avoid unnecessary updates
-    if position_record.x == new_position.x
-        && position_record.y == new_position.y
-        && position_record.z == new_position.z {
-        return Ok(());
-    }
-
-    // Update the existing position
-    position_record.x = new_position.x;
-    position_record.y = new_position.y;
-    position_record.z = new_position.z;
-    dsl.update_entity_position_by_id(position_record)
-        .map_err(|e| format!("Failed to update entity position: {:?}", e))?;
-    Ok(())
+    // Instead of updating directly, write to the incoming buffer table
+    // The scheduler will process these and update the main table
+    dsl.create_entity_position_incoming(CreateEntityPositionIncoming {
+        entity_id: entity_id,
+        x: new_position.x,
+        y: new_position.y,
+        z: new_position.z,
+    })
+    .map(|_| ())
+    .map_err(|e| format!("Failed to buffer position update: {:?}", e))
 }
 
 
