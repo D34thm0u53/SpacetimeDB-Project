@@ -27,7 +27,7 @@ pub fn cleanup_inactive_players(ctx: &ReducerContext) {
     // Authorization check: Ensure the caller is a game admin or server admin
     if !is_admin_tools_authorized(ctx) ||  try_server_only(ctx).is_err(){
         // Log unauthorized access attempt in user action audit
-        log_player_action_audit(ctx, &format!("Unauthorized attempt of admin tool: Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender));
+        let _ = log_player_action_audit(ctx, &format!("Unauthorized attempt of admin tool: Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender));
 
         // Log unauthorized access attempt
         log::warn!("SECURITY: Unauthorized admin tool attempt - Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender);
