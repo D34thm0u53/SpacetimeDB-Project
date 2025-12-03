@@ -1,9 +1,16 @@
 use spacetimedb::{table, Identity, ReducerContext, Timestamp};
 use spacetimedsl::*;
 
+// ============================================================================
+// Player Audit System
+// ============================================================================
+
+/// Audit log for tracking player actions.
+/// Records are immutable once created for compliance purposes.
 #[dsl(plural_name = player_audits,
     method(
-        update = true
+        update = false,
+        delete = false
     )
 )]
 #[table(name = player_audit, public)]
@@ -12,19 +19,27 @@ pub struct PlayerAudit {
     #[auto_inc]
     #[create_wrapper]
     id: u32,
-    pub user_identity: Identity,
-    pub action: String,
+    user_identity: Identity,
+    action: String,
     created_at: Timestamp,
 }
 
-pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) {
+/// Logs a player action to the audit table.
+///
+/// # Arguments
+/// * `ctx` - The reducer context
+/// * `action` - Description of the action being logged
+///
+/// # Returns
+/// Result indicating success or failure
+pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) -> Result<(), String> {
     let dsl = dsl(ctx);
-    dsl
-        .create_player_audit(CreatePlayerAudit {
-            user_identity: ctx.sender,
-            action: action.to_string(),
-        })
-        .expect("Failed to create audit record");
+    dsl.create_player_audit(CreatePlayerAudit {
+        user_identity: ctx.sender,
+        action: action.to_string(),
+    })
+    .map(|_| ())
+    .map_err(|e| format!("Failed to create audit record: {:?}", e))
 }
 
 // ============================================================================
@@ -35,7 +50,8 @@ pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) {
 /// Supports different value types through enum variants
 #[dsl(plural_name = global_configs,
     method(
-        update = true
+        update = true,
+        delete = true
     )
 )]
 #[table(name = global_config, public)]
@@ -61,24 +77,31 @@ pub struct GlobalConfig {
     pub last_modified_at: Timestamp,
 }
 
-/// Enum to support different configuration value types
+/// Enum to support different configuration value types.
 #[derive(Clone, Debug, PartialEq, spacetimedb::SpacetimeType)]
 pub enum ConfigValue {
+    /// String/text value
     Text(String),
+    /// Signed 64-bit integer
     Integer(i64),
+    /// Unsigned 64-bit integer
     UnsignedInteger(u64),
+    /// 64-bit floating point number
     Float(f64),
+    /// Boolean true/false
     Boolean(bool),
 }
 
-/// Scope of the configuration
+/// Scope of the configuration.
 #[derive(Clone, Debug, PartialEq, spacetimedb::SpacetimeType)]
 pub enum ConfigScope {
-    Database,  // Database-level settings (log levels, system limits)
-    User,      // User-facing settings (MOTD, multipliers)
+    /// Database-level settings (log levels, system limits)
+    Database,
+    /// User-facing settings (MOTD, multipliers)
+    User,
 }
 
-// Example usage constants for common config keys
+// Common configuration key constants
 pub const CONFIG_MOTD: &str = "motd";
 pub const CONFIG_LOG_LEVEL: &str = "log_level";
 pub const CONFIG_XP_MULTIPLIER: &str = "xp_multiplier";
@@ -86,7 +109,75 @@ pub const CONFIG_DAMAGE_MULTIPLIER: &str = "damage_multiplier";
 pub const CONFIG_CHAT_MESSAGE_LIMIT: &str = "chat_message_limit";
 pub const CONFIG_CHUNK_UPDATE_INTERVAL_MS: &str = "chunk_update_interval_ms";
 
-/// Initialize default global configurations
+// ============================================================================
+// Permission Helpers
+// ============================================================================
+
+/// Checks if the sender has admin permissions (GameAdmin, ServerAdmin, or is the server itself).
+///
+/// # Arguments
+/// * `ctx` - The reducer context
+///
+/// # Returns
+/// true if the sender has admin permissions
+fn has_config_admin_permission(ctx: &ReducerContext) -> bool {
+    use crate::modules::roles::{has_role, RoleType};
+
+    // Server itself always has permission
+    if ctx.sender == ctx.identity() {
+        return true;
+    }
+
+    // Check for admin roles
+    has_role(ctx, &ctx.sender, &RoleType::GameAdmin)
+        || has_role(ctx, &ctx.sender, &RoleType::ServerAdmin)
+}
+
+/// Requires admin permission, returning an error if not authorized.
+///
+/// # Arguments
+/// * `ctx` - The reducer context
+/// * `action` - Description of the action being attempted (for logging)
+/// * `key` - The config key being accessed (for logging)
+///
+/// # Returns
+/// Ok(()) if authorized, Err with message if not
+fn require_config_admin_permission(
+    ctx: &ReducerContext,
+    action: &str,
+    key: &str,
+) -> Result<(), String> {
+    if has_config_admin_permission(ctx) {
+        spacetimedb::log::debug!(
+            "ADMIN ACTION: User {} attempting to {} config '{}'",
+            ctx.sender,
+            action,
+            key
+        );
+        Ok(())
+    } else {
+        spacetimedb::log::warn!(
+            "SECURITY: User {} attempted to {} global config '{}' without proper permissions",
+            ctx.sender,
+            action,
+            key
+        );
+        Err("Only GameAdmin, ServerAdmin, or server can modify global configuration".to_string())
+    }
+}
+
+// ============================================================================
+// Configuration Initialization
+// ============================================================================
+
+/// Initializes default global configurations.
+/// Only runs if no configs exist yet.
+///
+/// # Arguments
+/// * `ctx` - The reducer context
+///
+/// # Returns
+/// Result indicating success or failure
 pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
     let dsl = dsl(ctx);
     
@@ -156,108 +247,102 @@ pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
     Ok(())
 }
 
-/// Helper function to get a config value as text
+/// Helper function to get a config value as text.
 pub fn get_config_text(ctx: &ReducerContext, key: &str) -> Option<String> {
     let dsl = dsl(ctx);
-    match dsl.get_global_config_by_key(&key.to_string()) {
-        Ok(config) => match config.get_value() {
+    dsl.get_global_config_by_key(&key.to_string())
+        .ok()
+        .and_then(|config| match config.get_value() {
             ConfigValue::Text(s) => Some(s.clone()),
             _ => None,
-        },
-        Err(_) => None,
-    }
+        })
 }
 
-/// Helper function to get a config value as u64
+/// Helper function to get a config value as u64.
 pub fn get_config_u64(ctx: &ReducerContext, key: &str) -> Option<u64> {
     let dsl = dsl(ctx);
-    match dsl.get_global_config_by_key(&key.to_string()) {
-        Ok(config) => match config.get_value() {
+    dsl.get_global_config_by_key(&key.to_string())
+        .ok()
+        .and_then(|config| match config.get_value() {
             ConfigValue::UnsignedInteger(n) => Some(*n),
             _ => None,
-        },
-        Err(_) => None,
-    }
+        })
 }
 
-/// Helper function to get a config value as i64
+/// Helper function to get a config value as i64.
 pub fn get_config_i64(ctx: &ReducerContext, key: &str) -> Option<i64> {
     let dsl = dsl(ctx);
-    match dsl.get_global_config_by_key(&key.to_string()) {
-        Ok(config) => match config.get_value() {
+    dsl.get_global_config_by_key(&key.to_string())
+        .ok()
+        .and_then(|config| match config.get_value() {
             ConfigValue::Integer(n) => Some(*n),
             _ => None,
-        },
-        Err(_) => None,
-    }
+        })
 }
 
-/// Helper function to get a config value as f64
+/// Helper function to get a config value as f64.
 pub fn get_config_f64(ctx: &ReducerContext, key: &str) -> Option<f64> {
     let dsl = dsl(ctx);
-    match dsl.get_global_config_by_key(&key.to_string()) {
-        Ok(config) => match config.get_value() {
+    dsl.get_global_config_by_key(&key.to_string())
+        .ok()
+        .and_then(|config| match config.get_value() {
             ConfigValue::Float(n) => Some(*n),
             _ => None,
-        },
-        Err(_) => None,
-    }
+        })
 }
 
-/// Helper function to get a config value as bool
+/// Helper function to get a config value as bool.
 pub fn get_config_bool(ctx: &ReducerContext, key: &str) -> Option<bool> {
     let dsl = dsl(ctx);
-    match dsl.get_global_config_by_key(&key.to_string()) {
-        Ok(config) => match config.get_value() {
+    dsl.get_global_config_by_key(&key.to_string())
+        .ok()
+        .and_then(|config| match config.get_value() {
             ConfigValue::Boolean(b) => Some(*b),
             _ => None,
-        },
-        Err(_) => None,
-    }
+        })
 }
 
-/// Updates an existing configuration value (requires GameAdmin or ServerAdmin role).
+/// Updates an existing configuration value.
+/// Requires GameAdmin, ServerAdmin role, or server identity.
 #[spacetimedb::reducer]
 pub fn update_global_config(
     ctx: &ReducerContext,
     key: String,
     value: ConfigValue,
 ) -> Result<(), String> {
+    require_config_admin_permission(ctx, "update", &key)?;
+
     let dsl = dsl(ctx);
-    
-    // Admin permission check - only GameAdmin, ServerAdmin, or ServerOnly can update configs
-    if !crate::modules::roles::has_role(ctx, &ctx.sender, &crate::modules::roles::RoleType::GameAdmin) &&
-       !crate::modules::roles::has_role(ctx, &ctx.sender, &crate::modules::roles::RoleType::ServerAdmin) &&
-       ctx.sender != ctx.identity() {
-        spacetimedb::log::warn!("SECURITY: User {} attempted to update global config '{}' without proper permissions", ctx.sender, key);
-        return Err("Only GameAdmin, ServerAdmin, or server can update global configuration".to_string());
-    }
-    
-    spacetimedb::log::debug!("ADMIN ACTION: User {} attempting to update config '{}'", ctx.sender, key);
-    
-    // Try to find existing config
+
     match dsl.get_global_config_by_key(&key) {
         Ok(mut config) => {
             let old_value = config.get_value().clone();
             config.set_value(value.clone());
             config.set_last_modified_by(Some(ctx.sender));
             config.set_last_modified_at(ctx.timestamp);
-            
+
             dsl.update_global_config_by_key(config)?;
             spacetimedb::log::info!(
-                "ADMIN ACTION: Updated config '{}' by {} (old: {:?}, new: {:?})", 
-                key, ctx.sender, old_value, value
+                "ADMIN ACTION: Updated config '{}' by {} (old: {:?}, new: {:?})",
+                key,
+                ctx.sender,
+                old_value,
+                value
             );
             Ok(())
         }
         Err(_) => {
-            spacetimedb::log::warn!("ADMIN ACTION: Failed - config key '{}' does not exist", key);
+            spacetimedb::log::warn!(
+                "ADMIN ACTION: Failed - config key '{}' does not exist",
+                key
+            );
             Err(format!("Configuration key '{}' does not exist", key))
         }
     }
 }
 
-/// Creates a new configuration entry (requires GameAdmin or ServerAdmin role).
+/// Creates a new configuration entry.
+/// Requires GameAdmin, ServerAdmin role, or server identity.
 #[spacetimedb::reducer]
 pub fn create_global_config_entry(
     ctx: &ReducerContext,
@@ -266,23 +351,18 @@ pub fn create_global_config_entry(
     description: Option<String>,
     scope: ConfigScope,
 ) -> Result<(), String> {
+    require_config_admin_permission(ctx, "create", &key)?;
+
     let dsl = dsl(ctx);
-    
-    // Admin permission check - only GameAdmin, ServerAdmin, or ServerOnly can update configs
-    if !crate::modules::roles::has_role(ctx, &ctx.sender, &crate::modules::roles::RoleType::GameAdmin) &&
-       !crate::modules::roles::has_role(ctx, &ctx.sender, &crate::modules::roles::RoleType::ServerAdmin) &&
-       ctx.sender != ctx.identity() {
-        spacetimedb::log::warn!("SECURITY: User {} attempted to update global config '{}' without proper permissions", ctx.sender, key);
-        return Err("Only GameAdmin, ServerAdmin, or server can update global configuration".to_string());
-    }
-    
-    spacetimedb::log::debug!("ADMIN ACTION: User {} attempting to create config '{}'", ctx.sender, key);
-    
+
     // Check if config already exists
     if dsl.get_global_config_by_key(&key).is_ok() {
-        return Err(format!("Configuration key '{}' already exists. Use update_global_config to modify it.", key));
+        return Err(format!(
+            "Configuration key '{}' already exists. Use update_global_config to modify it.",
+            key
+        ));
     }
-    
+
     dsl.create_global_config(CreateGlobalConfig {
         key: key.clone(),
         value: value.clone(),
@@ -291,8 +371,13 @@ pub fn create_global_config_entry(
         last_modified_by: Some(ctx.sender),
         last_modified_at: ctx.timestamp,
     })?;
-    
-    spacetimedb::log::info!("ADMIN ACTION: Created config '{}' by {} with value: {:?}", key, ctx.sender, value);
+
+    spacetimedb::log::info!(
+        "ADMIN ACTION: Created config '{}' by {} with value: {:?}",
+        key,
+        ctx.sender,
+        value
+    );
     Ok(())
 }
 

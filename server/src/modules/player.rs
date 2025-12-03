@@ -428,7 +428,7 @@ pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), Stri
             &requesting_user_account.get_identity(),
             &normalised_username
         ),
-    );
+    )?;
 
     dsl.update_player_account_by_identity(requesting_user_account)?;
 
