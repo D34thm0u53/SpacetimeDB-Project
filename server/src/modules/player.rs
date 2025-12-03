@@ -364,6 +364,32 @@ fn create_player_account(ctx: &ReducerContext, identity: Identity, username: Str
 
 /// Reducers
 
+/// Creates a mock player account for testing purposes (typically called by test clients).
+/// Takes an identity and username, creates a full player setup including account, status, and entity.
+#[spacetimedb::reducer]
+pub fn build_mock_data(ctx: &ReducerContext, identity: Identity, username: String) -> Result<(), String> {
+    log::info!("Building mock data for identity: {} with username: {}", identity, username);
+    
+    // Check if player already exists
+    if does_player_account_exist(ctx, identity) {
+        log::warn!("Mock player already exists for identity: {}", identity);
+        return Ok(()); // Already exists, no-op
+    }
+    
+    // Create the player account (this will trigger the after_insert hook which creates all related records)
+    match create_player_account(ctx, identity, username.clone()) {
+        Ok(account) => {
+            log::info!("Successfully created mock PlayerAccount [{}] for identity: {} with username: {}", 
+                      account.get_id(), identity, username);
+            Ok(())
+        },
+        Err(e) => {
+            log::error!("Failed to create mock player account: {}", e);
+            Err(format!("Failed to create mock player: {}", e))
+        }
+    }
+}
+
 /// Updates the username for the requesting player after validation and uniqueness check.
 #[spacetimedb::reducer]
 pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), String> {

@@ -8,7 +8,7 @@ use spacetimedsl::*;
         delete = true
     )
 )]
-#[table(name = entity_position)]
+#[table(name = entity_position, public)]
 pub struct EntityPosition {
     #[primary_key]
     #[index(btree)]
@@ -74,17 +74,26 @@ use crate::modules::player::*;
 // View to get entity chunks within a 3-chunk radius of the viewer
 #[view(name = nearby_entity_chunks, public)]
 pub fn nearby_entity_chunks(ctx: &ViewContext) -> Vec<EntityChunk> {
-
+    // Log the viewer attempting to access nearby chunks
+    log::debug!("nearby_entity_chunks called by identity: {}", ctx.sender);
 
     // Get the viewer's position first to determine their chunk
-    let viewer = ctx.db.player_account().identity().find(&ctx.sender)
-        .unwrap_or_else(|| panic!("Viewer not found in player account table"));
+    let viewer = match ctx.db.player_account().identity().find(&ctx.sender) {
+        Some(v) => v,
+        None => {
+            return Vec::new();
+        }
+    };
+    
+    log::debug!("Viewer found: player_id={}", viewer.id);
     
     // Get viewer's current chunk position
-    let viewer_chunk = ctx.db.entity_chunk()
-        .id()
-        .find(&viewer.id)
-        .unwrap_or_else(|| panic!("Viewer not found in chunk table"));
+    let viewer_chunk = match ctx.db.entity_chunk().id().find(&viewer.id) {
+        Some(chunk) => chunk,
+        None => {
+            return Vec::new();
+        }
+    };
     
     let viewer_chunk_x = viewer_chunk.chunk_x;
     let viewer_chunk_z = viewer_chunk.chunk_z;
@@ -108,6 +117,5 @@ pub fn nearby_entity_chunks(ctx: &ViewContext) -> Vec<EntityChunk> {
     
     return nearby_chunks
 }
-
 
 

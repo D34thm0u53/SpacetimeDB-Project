@@ -22,7 +22,6 @@ pub struct ChunkCheckTimer {
     #[create_wrapper]   
     id: u64,
     scheduled_at: spacetimedb::ScheduleAt,
-    current_update: u8,
 }
 
 
@@ -40,14 +39,13 @@ pub fn wrap_create_chunk_check_timer(ctx: &ReducerContext) -> Result<(), String>
     let interval_ms = get_config_u64(ctx, CONFIG_CHUNK_UPDATE_INTERVAL_MS).unwrap_or(5000);
     dsl.create_chunk_check_timer(CreateChunkCheckTimer {
         scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_millis(interval_ms).into()),
-        current_update: 0,
     })?;
     Ok(())
 }
 
 /// Reducer to calculate and update the current chunks for all online players entities based on their positions
 #[spacetimedb::reducer]
-pub fn calculate_current_chunks(ctx: &ReducerContext, mut _timer: ChunkCheckTimer) -> Result<(), String> {
+pub fn calculate_current_chunks(ctx: &ReducerContext, _timer: ChunkCheckTimer) -> Result<(), String> {
     let dsl = dsl(ctx);
 
 
