@@ -68,11 +68,18 @@ pub fn process_position_updates(ctx: &ReducerContext, _timer: PositionUpdateTime
     
     spacetimedb::log::debug!("Processing {} buffered position updates", incoming_updates.len());
     
+    // Track all IDs for cleanup
+    let mut processed_ids = Vec::with_capacity(incoming_updates.len());
+    
     // Group updates by entity_id and keep only the most recent (highest id = latest received)
     let mut latest_updates: HashMap<EntityId, EntityPositionIncoming> = HashMap::new();
     
     for update in incoming_updates {
         let entity_id = update.get_entity_id().clone();
+        let update_id = update.get_id().clone();
+        
+        // Track this ID for cleanup
+        processed_ids.push(update_id);
         
         // Keep the update with the highest id (most recent) for each entity
         latest_updates.entry(entity_id)
@@ -129,15 +136,14 @@ pub fn process_position_updates(ctx: &ReducerContext, _timer: PositionUpdateTime
         }
     }
     
-    // Clean up all processed incoming records
-    let all_incoming: Vec<_> = dsl.get_all_entity_positions_incoming().collect();
-    for incoming in all_incoming {
-        match dsl.delete_entity_position_incoming_by_id(&incoming.get_id()) {
+    // Clean up only the processed incoming records
+    for record_id in processed_ids {
+        match dsl.delete_entity_position_incoming_by_id(&record_id) {
             Ok(_) => deleted_count += 1,
             Err(e) => {
                 spacetimedb::log::warn!(
                     "Failed to delete incoming position record {}: {:?}", 
-                    incoming.get_id().value(), 
+                    record_id.value(), 
                     e
                 );
             }
