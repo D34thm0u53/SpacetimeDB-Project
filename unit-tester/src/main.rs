@@ -238,6 +238,10 @@ fn subscribe_to_tables(ctx: &DbConnection) {
         .on_applied(on_sub_applied)
         .on_error(on_sub_error)
         .subscribe(["SELECT * FROM player_account"]);
+    ctx.subscription_builder()
+        .on_applied(on_sub_applied)
+        .on_error(on_sub_error)
+        .subscribe(["SELECT * FROM entity"]);
 }
 
 
@@ -271,7 +275,7 @@ fn on_chunk_calculation_updated(_ctx: &EventContext, new_chunk: &EntityChunk) {
 
 
 
-fn on_msg_inserted(ctx: &EventContext, old_msg: &GlobalChatMessage, new_msg: &GlobalChatMessage) {
+fn on_msg_inserted(ctx: &EventContext, _old_msg: &GlobalChatMessage, new_msg: &GlobalChatMessage) {
     // Get the current user's id (assuming it's available via ctx.identity())
     let my_id = ctx.identity();
 
@@ -427,10 +431,14 @@ fn test_entity_system(ctx: &DbConnection) {
         .find(&mock_identity)
         .expect("Mock player account should exist");
     
-    let entity = Entity {
-        id: player_account.id,
-        entity_type: EntityType::Player,
-    };
+    // Wait for entity to be created by server hook
+    thread::sleep(Duration::from_millis(500));
+    
+    // Find the entity owned by this player
+    let entity = ctx.db.entity()
+        .iter()
+        .find(|e| e.owner_id == player_account.id)
+        .expect("Entity should exist for player");
 
     // Test update_my_position
     test_update_position(ctx, 1024, 512, 256, entity.clone());
