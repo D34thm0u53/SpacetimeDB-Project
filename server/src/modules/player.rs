@@ -103,7 +103,8 @@ fn after_player_account_insert(dsl: &spacetimedsl::DSL, row: &PlayerAccount) -> 
     //  entity_rotation
     //  entity_position
     //  entity_chunk
-    create_entity_tree(dsl.ctx(), EntityType::Player);
+    create_entity_tree(dsl.ctx(), EntityType::Player)
+        .map_err(|e| spacetimedsl::SpacetimeDSLError::Error(e))?;
 
     Ok(())
 
