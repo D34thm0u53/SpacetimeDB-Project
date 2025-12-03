@@ -162,7 +162,7 @@ fn require_config_admin_permission(
             action,
             key
         );
-        Err("Only GameAdmin, ServerAdmin, or server can modify global configuration".to_string())
+        Err(format!("Only GameAdmin, ServerAdmin, or server can {} global configuration", action))
     }
 }
 
