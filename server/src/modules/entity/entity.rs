@@ -66,6 +66,13 @@ pub fn create_entity_tree(ctx: &ReducerContext, entity_type: EntityType) -> Enti
         rot_y: 0,
         rot_z: 0,
     }).expect("Failed to create entity rotation");
+    
+    // Create the entity chunk record (starting at chunk 0,0)
+    dsl.create_entity_chunk(CreateEntityChunk {
+        id: crate::modules::player::PlayerAccountId::new(entity.id),
+        chunk_x: 0,
+        chunk_z: 0,
+    }).expect("Failed to create entity chunk");
 
     return entity
 }
