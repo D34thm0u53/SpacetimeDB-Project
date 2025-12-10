@@ -246,7 +246,7 @@ pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
     
     dsl.create_global_config(CreateGlobalConfig {
         key: CONFIG_POSITION_UPDATE_INTERVAL_MS.to_string(),
-        value: ConfigValue::UnsignedInteger(100),
+        value: ConfigValue::UnsignedInteger(50), // 20tps
         description: Some("Interval in milliseconds between position update batch processing".to_string()),
         scope: ConfigScope::Database,
         last_modified_by: Some(ctx.sender),
