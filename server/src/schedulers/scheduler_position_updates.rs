@@ -36,8 +36,8 @@ pub fn wrap_create_position_update_timer(ctx: &ReducerContext) -> Result<(), Str
         return Ok(());
     }
     
-    // Get the configured interval (default to 100ms for smooth updates)
-    let interval_ms = get_config_u64(ctx, CONFIG_POSITION_UPDATE_INTERVAL_MS).unwrap_or(100);
+    // Get the configured interval (default to 50ms for smooth updates)
+    let interval_ms = get_config_u64(ctx, CONFIG_POSITION_UPDATE_INTERVAL_MS).unwrap_or(50);
     
     dsl.create_position_update_timer(CreatePositionUpdateTimer {
         scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_millis(interval_ms).into()),
