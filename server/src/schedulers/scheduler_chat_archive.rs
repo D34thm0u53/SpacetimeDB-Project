@@ -8,19 +8,19 @@ use crate::modules::util::{get_config_u64, CONFIG_CHAT_MESSAGE_LIMIT};
 
 
 #[dsl(
-    plural_name = chat_archive_timers,
+    plural_name = scheduled_chat_archives,
     method(
         update = false, 
         delete = true
     )
 )]
 #[table(
-    name = chat_archive_timer,
+    name = scheduled_chat_archive,
     scheduled(
         archive_old_global_chat_messages
     )
 )]
-pub struct ChatArchiveTimer {
+pub struct ScheduledChatArchive {
     #[primary_key]
     #[auto_inc]
     #[create_wrapper]    
@@ -31,18 +31,18 @@ pub struct ChatArchiveTimer {
 
 
 /// Creates a chat archive timer if one doesn't already exist (runs every 60 seconds).
-pub fn wrap_create_chat_archive_timer(ctx: &ReducerContext) -> Result<(), String> {
+pub fn wrap_create_scheduled_chat_archive(ctx: &ReducerContext) -> Result<(), String> {
     let dsl = dsl(ctx);
 
     // Check if a chat archive timer already exists
-    let existing_timers: Vec<_> = dsl.get_all_chat_archive_timers().collect();
+    let existing_timers: Vec<_> = dsl.get_all_scheduled_chat_archives().collect();
     
     if !existing_timers.is_empty() {
         return Ok(());
     }
 
     // Once per minute, check if we have over our target for global chat messages
-    dsl.create_chat_archive_timer(CreateChatArchiveTimer {
+    dsl.create_scheduled_chat_archive(CreateScheduledChatArchive {
         scheduled_at: spacetimedb::ScheduleAt::Interval(Duration::from_secs(60).into()),
         current_update: 0,
     })?;
@@ -51,7 +51,7 @@ pub fn wrap_create_chat_archive_timer(ctx: &ReducerContext) -> Result<(), String
 
 /// Scheduled reducer that archives global chat messages exceeding the configured limit.
 #[reducer]
-pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ChatArchiveTimer) -> Result<(), String> {
+pub fn archive_old_global_chat_messages(ctx: &ReducerContext, mut _timer: ScheduledChatArchive) -> Result<(), String> {
     // Security check: Ensure only the scheduler can call this reducer
     if ctx.sender != ctx.identity() {
         return Err("Reducer archive_old_global_chat_messages may not be invoked by clients, only via scheduling.".to_string());

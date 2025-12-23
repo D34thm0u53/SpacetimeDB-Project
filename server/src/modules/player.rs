@@ -157,31 +157,31 @@ impl PlayerAccount {
             return Ok(());
         }
 
-        let chat_archive_timers = dsl.get_all_chat_archive_timers();
-        for timer in chat_archive_timers {
+        let scheduled_chat_archives = dsl.get_all_scheduled_chat_archives();
+        for timer in scheduled_chat_archives {
             log::debug!("Deleting chat archive timer ID: {}", timer.get_id());
-            dsl.delete_chat_archive_timer_by_id(&timer.get_id())?;
+            dsl.delete_scheduled_chat_archive_by_id(&timer.get_id())?;
         }
                 
-        let chunk_timers = dsl.get_all_chunk_check_timers();
+        let chunk_timers = dsl.get_all_scheduled_chunk_checks();
         for timer in chunk_timers {
             log::debug!("Deleting chunk check timer ID: {}", timer.get_id());
-            dsl.delete_chunk_check_timer_by_id(&timer.get_id())?;
+            dsl.delete_scheduled_chunk_check_by_id(&timer.get_id())?;
         }
         
-        let position_update_timers = dsl.get_all_position_update_timers();
-        for timer in position_update_timers {
+        let scheduled_position_updates = dsl.get_all_scheduled_position_updates();
+        for timer in scheduled_position_updates {
             log::debug!("Deleting position update timer ID: {}", timer.get_id());
-            dsl.delete_position_update_timer_by_id(&timer.get_id())?;
+            dsl.delete_scheduled_position_update_by_id(&timer.get_id())?;
         }
         Ok(())
     }
 
     /// Transitions player to online status, removing from offline table and starting schedulers.
     fn move_player_to_online(&self, ctx: &ReducerContext) -> Result<(), SpacetimeDSLError> {
-        use crate::schedulers::scheduler_chunks::wrap_create_chunk_check_timer;
-        use crate::schedulers::scheduler_chat_archive::wrap_create_chat_archive_timer;
-        use crate::schedulers::scheduler_position_updates::wrap_create_position_update_timer;
+        use crate::schedulers::scheduler_chunks::wrap_create_scheduled_chunk_check;
+        use crate::schedulers::scheduler_chat_archive::wrap_create_scheduled_chat_archive;
+        use crate::schedulers::scheduler_position_updates::wrap_create_scheduled_position_update;
 
         let dsl = dsl(ctx);
         // Check if already online
@@ -202,9 +202,15 @@ impl PlayerAccount {
         })?;
 
         // Start scheduled reducers if not running
-        let _ = wrap_create_chunk_check_timer(ctx);        
-        let _ = wrap_create_chat_archive_timer(ctx);
-        let _ = wrap_create_position_update_timer(ctx);
+        if let Err(e) = wrap_create_scheduled_chunk_check(ctx) {
+            log::error!("Failed to create chunk check timer: {}", e);
+        }
+        if let Err(e) = wrap_create_scheduled_chat_archive(ctx) {
+            log::error!("Failed to create chat archive timer: {}", e);
+        }
+        if let Err(e) = wrap_create_scheduled_position_update(ctx) {
+            log::error!("Failed to create position update timer: {}", e);
+        }
         Ok(())
 
     }
@@ -243,13 +249,16 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
             // Here we will validate the issuer identity and create a PlayerAccount if it doesn't exist.
             
             // for now, just create if not exists
-            
-            match does_player_account_exist(ctx, ctx.sender) {
-
-                true => {
-                    log::debug!("PlayerAccount already exists for identity: {}", ctx.sender);
+            let dsl = dsl(ctx); 
+            let account = match dsl.get_player_account_by_identity(&ctx.sender) {
+                Ok(account) => account,
+                Err(e @ SpacetimeDSLError::Error { .. }) => {
+                    // An error occured that DSL was unable to handle.
+                    log::debug!("DB Error: {}", e);
+                    return;
                 },
-                false => {
+                Err(SpacetimeDSLError::NotFoundError { .. }) => {
+                    // PlayerAccount does not exist, will create below
                     // Create a default username based on identity
                     let default_username = format!("player_{}", ctx.sender.to_string().chars().take(16).collect::<String>());
                     match create_player_account(ctx, ctx.sender, default_username) {
@@ -260,18 +269,32 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
                             log::error!("Failed to create PlayerAccount for identity [{}]: {}", ctx.sender, e);
                         }
                     }
-                }
+                    return;
+                },
+                Err(e) => {
+                    // An error occured that DSL was able to handle.
+                    log::debug!("DB Error: {}", e);
+                    return;
+                },
+            };
+            match account.move_player_to_online(ctx) {
+                Err(e @ SpacetimeDSLError::Error { .. }) => {
+                    // An error occured that DSL was unable to handle.
+                    log::debug!("DB Error: {}", e);
+                    return;
+                },
+                Err(e) => {
+                    log::error!("Failed to move player [{}] to online: {}", account.get_id(), e);
+                },
+                _ => {}
             }
-
-
         },
 
         "disconnect" => {
             log::debug!("Player [{}] disconnected", ctx.sender);
             // On disconnect, move player to offline if they have a PlayerAccount
             let dsl = dsl(ctx);
-            let player_account = dsl.get_player_account_by_identity(&ctx.sender);
-            let player_account = match player_account {
+            let player_account = match dsl.get_player_account_by_identity(&ctx.sender) {
                 Ok(account) => account,
                 Err(_) => {
                     log::warn!("No PlayerAccount found for disconnected identity: {}", ctx.sender);
