@@ -252,7 +252,13 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
             let dsl = dsl(ctx); 
             let account = match dsl.get_player_account_by_identity(&ctx.sender) {
                 Ok(account) => account,
-                Err(_) => {
+                Err(e @ SpacetimeDSLError::Error { .. }) => {
+                    // An error occured that DSL was unable to handle.
+                    log::debug!("DB Error: {}", e);
+                    return;
+                },
+                Err(SpacetimeDSLError::NotFoundError { .. }) => {
+                    // PlayerAccount does not exist, will create below
                     // Create a default username based on identity
                     let default_username = format!("player_{}", ctx.sender.to_string().chars().take(16).collect::<String>());
                     match create_player_account(ctx, ctx.sender, default_username) {
@@ -264,36 +270,24 @@ pub fn handle_player_connection_event(ctx: &ReducerContext, connection_event_typ
                         }
                     }
                     return;
-                }
+                },
+                Err(e) => {
+                    // An error occured that DSL was able to handle.
+                    log::debug!("DB Error: {}", e);
+                    return;
+                },
             };
             match account.move_player_to_online(ctx) {
+                Err(e @ SpacetimeDSLError::Error { .. }) => {
+                    // An error occured that DSL was unable to handle.
+                    log::debug!("DB Error: {}", e);
+                    return;
+                },
                 Err(e) => {
                     log::error!("Failed to move player [{}] to online: {}", account.get_id(), e);
                 },
                 _ => {}
             }
-
-            
-            match does_player_account_exist(ctx, ctx.sender) {
-
-                true => {
-                    log::debug!("PlayerAccount already exists for identity: {}", ctx.sender);
-                },
-                false => {
-                    // Create a default username based on identity
-                    let default_username = format!("player_{}", ctx.sender.to_string().chars().take(16).collect::<String>());
-                    match create_player_account(ctx, ctx.sender, default_username) {
-                        Ok(account) => {
-                            log::info!("Created PlayerAccount [{}] for new identity: {}", account.get_id(), ctx.sender);
-                        },
-                        Err(e) => {
-                            log::error!("Failed to create PlayerAccount for identity [{}]: {}", ctx.sender, e);
-                        }
-                    }
-                }
-            }
-
-
         },
 
         "disconnect" => {
