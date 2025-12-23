@@ -109,6 +109,7 @@ pub const CONFIG_DAMAGE_MULTIPLIER: &str = "damage_multiplier";
 pub const CONFIG_CHAT_MESSAGE_LIMIT: &str = "chat_message_limit";
 pub const CONFIG_CHUNK_UPDATE_INTERVAL_MS: &str = "chunk_update_interval_ms";
 pub const CONFIG_POSITION_UPDATE_INTERVAL_MS: &str = "position_update_interval_ms";
+pub const CONFIG_ROTATION_UPDATE_INTERVAL_MS: &str = "rotation_update_interval_ms";
 
 // ============================================================================
 // Permission Helpers
@@ -248,6 +249,15 @@ pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
         key: CONFIG_POSITION_UPDATE_INTERVAL_MS.to_string(),
         value: ConfigValue::UnsignedInteger(50), // 20tps
         description: Some("Interval in milliseconds between position update batch processing".to_string()),
+        scope: ConfigScope::Database,
+        last_modified_by: Some(ctx.sender),
+        last_modified_at: ctx.timestamp,
+    })?;
+    
+    dsl.create_global_config(CreateGlobalConfig {
+        key: CONFIG_ROTATION_UPDATE_INTERVAL_MS.to_string(),
+        value: ConfigValue::UnsignedInteger(200), // 5 Hz with client-side interpolation
+        description: Some("Interval in milliseconds between rotation update batch processing. Clients interpolate between updates".to_string()),
         scope: ConfigScope::Database,
         last_modified_by: Some(ctx.sender),
         last_modified_at: ctx.timestamp,

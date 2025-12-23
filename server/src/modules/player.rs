@@ -182,6 +182,7 @@ impl PlayerAccount {
         use crate::schedulers::scheduler_chunks::wrap_create_scheduled_chunk_check;
         use crate::schedulers::scheduler_chat_archive::wrap_create_scheduled_chat_archive;
         use crate::schedulers::scheduler_position_updates::wrap_create_scheduled_position_update;
+        use crate::schedulers::scheduler_rotation_updates::wrap_create_scheduled_rotation_update;
 
         let dsl = dsl(ctx);
         // Check if already online
@@ -210,6 +211,9 @@ impl PlayerAccount {
         }
         if let Err(e) = wrap_create_scheduled_position_update(ctx) {
             log::error!("Failed to create position update timer: {}", e);
+        }
+        if let Err(e) = wrap_create_scheduled_rotation_update(ctx) {
+            log::error!("Failed to create rotation update timer: {}", e);
         }
         Ok(())
 
