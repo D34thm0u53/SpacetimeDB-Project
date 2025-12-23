@@ -99,13 +99,19 @@ pub fn process_position_updates(ctx: &ReducerContext, _timer: ScheduledPositionU
                 position_record.y = latest_update.y;
                 position_record.z = latest_update.z;
                 
-                let _ = dsl.update_entity_position_by_id(position_record);
+            if let Err(e) = dsl.update_entity_position_by_id(position_record) {
+                log::warn!("Failed to update position for entity {}: {:?}", entity_id.value(), e);
+            }
             }
         }
         
         // Delete all incoming records for this entity using the btree index
         // This is more efficient than deleting by primary key one at a time
-        let _ = dsl.delete_entity_positions_incoming_by_entity_id(&entity_id);
+        
+        if let Err(e) = dsl.delete_entity_positions_incoming_by_entity_id(&entity_id) {
+                log::warn!("Failed to delete incoming positions for entity {}: {:?}", entity_id.value(), e);
+        }
+        
     }
     
     Ok(())
