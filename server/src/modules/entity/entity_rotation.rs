@@ -2,7 +2,8 @@ use spacetimedb::{table, ReducerContext, Timestamp};
 use spacetimedsl::dsl;
 use spacetimedsl::*;
 
-use super::entity::EntityId;
+use super::entity::*;
+use crate::modules::player::*;
 
 /// Rotation information for entities.
 #[dsl(plural_name = entity_rotations,
@@ -51,22 +52,36 @@ pub struct EntityRotationIncoming {
 /// Buffers a rotation update for the client's entity.
 /// Instead of updating directly, writes to the incoming buffer table.
 /// The scheduler processes these updates in batches and applies only the latest rotation per entity.
+///
+/// # Arguments
+/// * `ctx` - The reducer context
+/// * `rot_x` - Rotation around X axis
+/// * `rot_y` - Rotation around Y axis
+/// * `rot_z` - Rotation around Z axis
 #[spacetimedb::reducer]
-pub fn update_my_rotation(ctx: &ReducerContext, new_rotation: EntityRotation) -> Result<(), String> {
+pub fn update_my_rotation(ctx: &ReducerContext, rot_x: i16, rot_y: i16, rot_z: i16) -> Result<(), String> {
     let dsl = dsl(ctx);
-
-    let entity_id = EntityId::new(new_rotation.id);
     
-    // Verify the entity exists before buffering the rotation update
-    let _rotation_record: EntityRotation = dsl.get_entity_rotation_by_id(&entity_id)?;
+    // Get the player account for the sender
+    let player_account = dsl.get_player_account_by_identity(&ctx.sender)
+        .map_err(|_| "Player account not found".to_string())?;
+    
+    let player_id = player_account.get_id().value();
+    
+    // Find the entity owned by this player
+    let entity = dsl.get_entities_by_owner_id(&player_id)
+        .next()
+        .ok_or_else(|| "No entity found for player".to_string())?;
+    
+    let entity_id = entity.get_id();
 
     // Write to the incoming buffer table.
     // The scheduler will process these and update the main table.
     dsl.create_entity_rotation_incoming(CreateEntityRotationIncoming {
         entity_id,
-        rot_x: new_rotation.rot_x,
-        rot_y: new_rotation.rot_y,
-        rot_z: new_rotation.rot_z,
+        rot_x,
+        rot_y,
+        rot_z,
     })
     .map(|_| ())
     .map_err(|e| format!("Failed to buffer rotation update: {:?}", e))

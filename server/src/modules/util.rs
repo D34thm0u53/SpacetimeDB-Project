@@ -256,7 +256,7 @@ pub fn init_default_configs(ctx: &ReducerContext) -> Result<(), String> {
     
     dsl.create_global_config(CreateGlobalConfig {
         key: CONFIG_ROTATION_UPDATE_INTERVAL_MS.to_string(),
-        value: ConfigValue::UnsignedInteger(200), // 5tps with client-side interpolation
+        value: ConfigValue::UnsignedInteger(200), // 5 Hz with client-side interpolation
         description: Some("Interval in milliseconds between rotation update batch processing. Clients interpolate between updates".to_string()),
         scope: ConfigScope::Database,
         last_modified_by: Some(ctx.sender),
