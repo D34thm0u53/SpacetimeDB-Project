@@ -1,6 +1,6 @@
 [package]
 name = "mouse_game"
-description = "The begining of an FPS running on SpaceTimeDB"
+description = "A flexible multiplayer game framework running on SpacetimeDB"
 homepage = ""
 repository = "https://github.com/D34thm0u53/SpacetimeDB-Project"
 version = "0.1.0"

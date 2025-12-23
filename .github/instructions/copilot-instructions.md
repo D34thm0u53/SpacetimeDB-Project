@@ -1,7 +1,7 @@
-# SpacetimeDB FPS Game - Copilot Instructions
+# SpacetimeDB Multiplayer Game Framework - Copilot Instructions
 
 ## Project Overview
-This is a SpacetimeDB-based multiplayer FPS game with a **client-server architecture** where:
+This is a SpacetimeDB-based multiplayer game framework with a **client-server architecture** where:
 - **Server** (`server/`) contains the SpacetimeDB module with reducers, tables, and game logic
 - **Client** (`client/`) is a Rust-based test client that connects to the SpacetimeDB instance
 - **SpacetimeDSL** is used extensively for ergonomic database operations and type safety
@@ -33,7 +33,7 @@ pub struct GlobalChatMessage {
 ### Authentication & Identity Management
 - Custom "So Stupid it Works" authentication flow using `lazy_static` mutex for identity tracking
 - Guest users → authenticated users → online/offline player tables
-- Identity tokens stored in client credentials file via `credentials::File::new("fps-base")`
+- Identity tokens stored in client credentials file via `credentials::File::new("mouse-game")`
 
 ### Data Flow Patterns
 - **Client** calls reducers via `ctx.reducers().reducer_name()`

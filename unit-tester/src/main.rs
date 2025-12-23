@@ -7,7 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 // Global constants
-const DB_NAME: &str = "fps-base";
+const DB_NAME: &str = "mouse-game";
 const HOST: &str = "https://maincloud.spacetimedb.com";
 
 
@@ -67,7 +67,7 @@ fn connect_to_db() -> DbConnection {
 }
 
 fn creds_store() -> credentials::File {
-    credentials::File::new("fps-base")
+    credentials::File::new("mouse-game")
 }
 
 /// Our `on_connect` callback: save our credentials to a file.
