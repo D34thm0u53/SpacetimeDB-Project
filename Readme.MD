@@ -1,11 +1,11 @@
-# SpacetimeDB Multiplayer FPS Game
+# SpacetimeDB Multiplayer Game Framework
 
-A multiplayer FPS game framework built on [SpacetimeDB](https://spacetimedb.com), demonstrating real-time entity synchronization, spatial chunking, chat, and a friends management system.
+A flexible multiplayer game framework built on [SpacetimeDB](https://spacetimedb.com), demonstrating real-time entity synchronization, spatial chunking, chat, and a friends management system. This framework can be adapted for multiple game types including FPS, RPG, strategy games, and more.
 
 
 ## 🎯 Project Purpose
 
-This project serves as both a functional multiplayer FPS backend and a reference implementation for building real-time multiplayer games with SpacetimeDB. It showcases:
+This project serves as both a functional multiplayer game backend and a reference implementation for building real-time multiplayer games with SpacetimeDB. It showcases:
 
 - **Real-time Entity Synchronization** – Player positions and rotations synchronized across clients through an intermediary table.
 - **Spatial Chunk System** –  Chunking to enable proximity based position updates
