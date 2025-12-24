@@ -6,18 +6,50 @@ use spacetimedb_sdk::{credentials, DbContext, Error, Identity, Table};
 use std::thread;
 use std::time::Duration;
 
+use sha2::{Sha256, Digest};
+use base64::{Engine, engine::general_purpose};
+use std::sync::{Arc, Mutex};
+
 // Global constants
 const DB_NAME: &str = "mouse-game";
 const HOST: &str = "https://maincloud.spacetimedb.com";
 
+// OIDC Configuration
+const CLIENT_ID: &str = "client_031CVDRbDed69EKkv8duSe";
+const REDIRECT_URI: &str = "http://127.0.0.1:8080/callback";
+const AUTH_URI: &str = "https://auth.spacetimedb.com/oidc/auth";
+const TOKEN_URI: &str = "https://auth.spacetimedb.com/oidc/token";
+
+
 
 // Entry point of the application
-fn main() {
+fn main(){
     println!("SpacetimeDB Reducer Test Client Starting...");
     
-    // Connect to the database
-    let ctx: DbConnection = connect_to_db();
+    // Before we connect to the db, we need to get our auth token.
+    // Handle OIDC authentication if no saved credentials exist
+    /* */
+    let token = if let Ok(Some(saved_token)) = creds_store().load() {
+        println!("Using saved authentication token");
+        Some(saved_token)
+    } else {
+        println!("No saved credentials found. Starting OIDC authentication flow...");
+        match get_auth_token() {
+            Ok(token) => {
+                println!("Successfully obtained authentication token");
+                Some(token)
+            }
+            Err(e) => {
+                eprintln!("Failed to authenticate: {}", e);
+                std::process::exit(1);
+            }
+        }
+    };
+       
 
+
+    // Connect to the database
+    let ctx: DbConnection = connect_to_db(token);
     // Register callbacks to run in response to database events.
     register_callbacks(&ctx);
 
@@ -45,7 +77,7 @@ fn main() {
 }
 
 /// Load credentials from a file and connect to the database.
-fn connect_to_db() -> DbConnection {
+fn connect_to_db(token: Option<String>) -> DbConnection {
     DbConnection::builder()
         // Register our `on_connect` callback, which will save our auth token.
         .on_connect(on_connected)
@@ -56,7 +88,7 @@ fn connect_to_db() -> DbConnection {
         // If the user has previously connected, we'll have saved a token in the `on_connect` callback.
         // In that case, we'll load it and pass it to `with_token`,
         // so we can re-authenticate as the same `Identity`.
-        // .with_token(creds_store().load().expect("Error loading credentials"))
+        .with_token(token)
         // Set the database name we chose when we called `spacetime publish`.
         .with_module_name(DB_NAME)
         // Set the URI of the SpacetimeDB host that's running our database.
@@ -130,11 +162,11 @@ fn general_callbacks(ctx: &DbConnection) {
         }
     });
 
-    let _update_rotation_callback_id = ctx.reducers().on_update_my_rotation(|ctx, _entity, new_rotation| {
+    let _update_rotation_callback_id = ctx.reducers().on_update_my_rotation(|ctx, _entity, _old_rotation, new_rotation| {
         match &ctx.event.status {
             spacetimedb_sdk::Status::Committed => {
                 println!("Rotation updated to ({}, {}, {})", 
-                         new_rotation.rot_x, new_rotation.rot_y, new_rotation.rot_z);
+                         new_rotation, new_rotation, new_rotation);
             }
             spacetimedb_sdk::Status::Failed(err) => {
                 println!("Failed to update rotation: {}", err);
@@ -445,7 +477,7 @@ fn test_entity_system(ctx: &DbConnection) {
     thread::sleep(Duration::from_millis(500));
     println!("");
     // Test update_my_rotation
-    test_update_rotation(ctx, 45, 90, 0, entity.clone());
+    test_update_rotation(ctx, 45, 90, 0);
     thread::sleep(Duration::from_millis(500));
     println!("");
     // Test multiple position updates
@@ -533,16 +565,8 @@ fn test_update_position(ctx: &DbConnection, x: i32, y: i32, z: i32, entity: Enti
     
 }
 
-fn test_update_rotation(ctx: &DbConnection, rot_x: i16, rot_y: i16, rot_z: i16, entity: Entity) {
-    
-    let new_rotation = EntityRotation {
-        id: entity.id,
-        rot_x,
-        rot_y,
-        rot_z,
-    };
-    
-    let _ = ctx.reducers().update_my_rotation(entity, new_rotation);
+fn test_update_rotation(ctx: &DbConnection, rot_x: i16, rot_y: i16, rot_z: i16) {
+    let _ = ctx.reducers().update_my_rotation(rot_x, rot_y, rot_z);
 }
 
 fn test_apply_damage(ctx: &DbConnection, victim_id: u32, damage: u32) {
@@ -628,6 +652,192 @@ fn user_input_loop(ctx: &DbConnection) {
     }
     
     println!("Goodbye!");
+}
+
+/// Generate a cryptographic state for OIDC flow.
+fn generate_state() -> String {
+    use rand::Rng;
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                             abcdefghijklmnopqrstuvwxyz\
+                             0123456789-._~";
+    let mut rng = rand::rng();
+    
+    (0..32)
+        .map(|_| {
+            let idx = rng.random_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect()
+}
+
+/// Generate a code verifier for PKCE (minimum 43 characters).
+fn generate_code_verifier() -> String {
+    use rand::Rng;
+    const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+                             abcdefghijklmnopqrstuvwxyz\
+                             0123456789-._~";
+    let mut rng = rand::rng();
+    
+    (0..128)
+        .map(|_| {
+            let idx = rng.random_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect()
+}
+
+/// Generate code challenge for PKCE flow.
+fn generate_code_challenge(code_verifier: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(code_verifier.as_bytes());
+    let hash = hasher.finalize();
+    general_purpose::URL_SAFE_NO_PAD.encode(&hash)
+}
+
+/// Start local HTTP server to handle OAuth redirect.
+fn start_redirect_server(_state: Arc<Mutex<Option<String>>>) -> std::thread::JoinHandle<Option<String>> {
+    thread::spawn(move || {
+        let server = match tiny_http::Server::http("127.0.0.1:8080") {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Failed to start redirect server: {}", e);
+                return None;
+            }
+        };
+
+        println!("Waiting for authorization callback on http://127.0.0.1:8080/callback");
+
+        for request in server.incoming_requests() {
+            let path = request.url();
+            
+            let response = if path.starts_with("/callback") {
+                if let Some(query) = path.split('?').nth(1) {
+                    let params: std::collections::HashMap<_, _> = url::form_urlencoded::parse(query.as_bytes())
+                        .into_owned()
+                        .collect();
+
+                    if let Some(code) = params.get("code") {
+                        let _ = request.respond(tiny_http::Response::from_string("Authorization successful! You can close this window."));
+                        return Some(code.clone());
+                    }
+                    
+                    if let Some(error) = params.get("error") {
+                        let response_msg = format!("Error: {}", error);
+                        let _ = request.respond(tiny_http::Response::from_string(&response_msg));
+                        continue;
+                    }
+                }
+                tiny_http::Response::from_string("Invalid callback parameters")
+            } else {
+                tiny_http::Response::from_string("Invalid request")
+            };
+            
+            let _ = request.respond(response);
+        }
+        
+        None
+    })
+}
+
+/// Perform the OIDC authorization code flow.
+fn get_auth_token() -> Result<String, Box<dyn std::error::Error>> {
+    let state = generate_state();
+    let code_verifier = generate_code_verifier();
+    let code_challenge = generate_code_challenge(&code_verifier);
+
+    // Construct the authorization URL
+    let encoded_redirect = urlencoding::encode(REDIRECT_URI);
+    let auth_url = format!(
+        "{}?client_id={}&redirect_uri={}&response_type=code&scope=openid%20profile%20email&state={}&code_challenge={}&code_challenge_method=S256",
+        AUTH_URI, CLIENT_ID, encoded_redirect, state, code_challenge
+    );
+
+    println!("\nOIDC Authentication Debug Info:");
+    println!("  CLIENT_ID: {}", CLIENT_ID);
+    println!("  REDIRECT_URI: {}", REDIRECT_URI);
+    println!("  Encoded Redirect: {}", encoded_redirect);
+    println!("\nOpening browser for authorization...");
+    println!("If browser doesn't open, visit this URL:\n{}", auth_url);
+    
+    // Try to open the URL in the default browser
+    let _ = open_url(&auth_url);
+
+    // Start the redirect server
+    let state_holder = Arc::new(Mutex::new(None));
+    let server_handle = start_redirect_server(state_holder.clone());
+
+    // Wait for the authorization code
+    let auth_code = server_handle.join()
+        .ok()
+        .flatten()
+        .ok_or("Failed to get authorization code")?;
+
+    println!("Received authorization code: {}", &auth_code[..auth_code.len().min(20)]);
+
+    // Exchange the code for a token
+    let client = reqwest::blocking::Client::new();
+    println!("\nExchanging authorization code for token...");
+    println!("  Token URI: {}", TOKEN_URI);
+    println!("  Client ID: {}", CLIENT_ID);
+    println!("  Redirect URI: {}", REDIRECT_URI);
+    
+    let token_response = client
+        .post(TOKEN_URI)
+        .form(&[
+            ("grant_type", "authorization_code"),
+            ("code", &auth_code),
+            ("client_id", CLIENT_ID),
+            ("redirect_uri", REDIRECT_URI),
+            ("code_verifier", &code_verifier),
+        ])
+        .send()?;
+
+    println!("Token response status: {}", token_response.status());
+    
+    let response_body = token_response.text()?;
+    println!("Token response body: {}", response_body);
+
+    let token_data: serde_json::Value = serde_json::from_str(&response_body)
+        .map_err(|e| format!("Failed to parse token response as JSON: {}", e))?;
+    
+    println!("Parsed token response: {}", serde_json::to_string_pretty(&token_data)?);
+    
+    // Use id_token for SpacetimeDB authentication, NOT access_token.
+    // The id_token is a JWT containing identity claims (issuer, audience, subject)
+    // that SpacetimeDB uses to verify the client's identity.
+    let id_token = token_data
+        .get("id_token")
+        .and_then(|v| v.as_str())
+        .ok_or("No id_token in response")?
+        .to_string();
+
+    println!("Successfully obtained ID token");
+    println!("ID token (first 20 chars): {}...", &id_token[..id_token.len().min(20)]);
+
+    Ok(id_token)
+}
+
+/// Attempt to open a URL in the default browser.
+fn open_url(url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(&["/C", "start", url])
+            .spawn()?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()?;
+    }
+    Ok(())
 }
 
 fn print_help() {
