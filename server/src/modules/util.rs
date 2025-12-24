@@ -9,7 +9,7 @@ use spacetimedsl::*;
 /// Records are immutable once created for compliance purposes.
 #[dsl(plural_name = player_audits,
     method(
-        update = false,
+        update = true,
         delete = false
     )
 )]
@@ -19,8 +19,8 @@ pub struct PlayerAudit {
     #[auto_inc]
     #[create_wrapper]
     id: u32,
-    user_identity: Identity,
-    action: String,
+    pub user_identity: Identity,
+    pub action: String,
     created_at: Timestamp,
 }
 
@@ -40,6 +40,20 @@ pub fn log_player_action_audit(ctx: &ReducerContext, action: &str) -> Result<(),
     })
     .map(|_| ())
     .map_err(|e| format!("Failed to create audit record: {:?}", e))
+}
+
+/// Logs a security violation to both the audit table and the server log.
+/// Use this for any SECURITY: prefixed log messages to ensure compliance tracking.
+///
+/// # Arguments
+/// * `ctx` - The reducer context
+/// * `action` - Description of the security violation
+///
+/// # Returns
+/// Result indicating success or failure of the audit record creation
+pub fn log_security_audit(ctx: &ReducerContext, action: &str) -> Result<(), String> {
+    spacetimedb::log::warn!("SECURITY: {}", action);
+    log_player_action_audit(ctx, &format!("SECURITY: {}", action))
 }
 
 // ============================================================================
@@ -158,11 +172,14 @@ fn require_config_admin_permission(
         );
         Ok(())
     } else {
-        spacetimedb::log::warn!(
-            "SECURITY: User {} attempted to {} global config '{}' without proper permissions",
-            ctx.sender,
-            action,
-            key
+        let _ = log_security_audit(
+            ctx,
+            &format!(
+                "User {} attempted to {} global config '{}' without proper permissions",
+                ctx.sender,
+                action,
+                key
+            ),
         );
         Err(format!("Only GameAdmin, ServerAdmin, or server can {} global configuration", action))
     }

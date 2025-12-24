@@ -1,6 +1,7 @@
 use spacetimedb::ReducerContext;
 use spacetimedsl::dsl;
 
+use crate::modules::util::log_security_audit;
 
 /// Checks if the caller is either a developer or the server identity.
 pub fn try_server_or_dev(ctx: &ReducerContext) -> bool {
@@ -14,7 +15,10 @@ pub fn try_developer_only(ctx: &ReducerContext) -> bool {
         return true;
     }
     else {
-        log::warn!("SECURITY: Non-developer user {} attempted developer-only action", ctx.sender);
+        let _ = log_security_audit(
+            ctx,
+            &format!("Non-developer user {} attempted developer-only action", ctx.sender),
+        );
         return false;
     }
 }
@@ -25,7 +29,10 @@ pub fn try_server_only(ctx: &ReducerContext) -> bool {
         return true;
     }
     else {
-        log::warn!("SECURITY: Non-server user {} attempted server-only action", ctx.sender);
+        let _ = log_security_audit(
+            ctx,
+            &format!("Non-server user {} attempted server-only action", ctx.sender),
+        );
         return false;
     }
 }
