@@ -5,6 +5,7 @@ use spacetimedsl::*;
 
 use crate::modules::player::*;
 use crate::modules::common::*;
+use crate::modules::util::log_security_audit;
 
 // Store User Roles
 #[dsl(plural_name = roles,
@@ -141,7 +142,10 @@ fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
 pub fn set_player_roles(ctx: &ReducerContext, target_identity: Identity, requested_role: RoleType) -> Result<(), String> {
     if !try_server_or_dev(ctx) {
         if !is_admin_tools_authorized(ctx) {
-            log::warn!("SECURITY: Unauthorized attempt to set roles by {:?}", ctx.sender);
+            let _ = log_security_audit(
+                ctx,
+                &format!("Unauthorized attempt to set roles by {:?}", ctx.sender),
+            );
             return Err("Unauthorized access".to_string());
         }
     }

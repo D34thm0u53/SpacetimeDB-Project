@@ -7,7 +7,7 @@ use crate::modules::roles::*;
 use crate::modules::player::*;
 use crate::modules::entity_position::*;
 use crate::modules::common::*;
-use crate::modules::util::*;
+use crate::modules::util::log_security_audit;
 
 
 
@@ -17,7 +17,10 @@ fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
     if let Some(roles) = dsl.get_role_by_user_identity(&ctx.sender) {
         roles.is_game_admin || roles.is_server_administrator
     } else {
-        log::warn!("SECURITY: User {:?} attempted to run admin tools", ctx.sender);
+        let _ = log_security_audit(
+            ctx,
+            &format!("User {:?} attempted to run admin tools without roles", ctx.sender),
+        );
         false
     }
 }
@@ -26,11 +29,11 @@ fn is_admin_tools_authorized(ctx: &ReducerContext) -> bool {
 pub fn cleanup_inactive_players(ctx: &ReducerContext) {
     // Authorization check: Ensure the caller is a game admin or server admin
     if !is_admin_tools_authorized(ctx) ||  try_server_only(ctx).is_err(){
-        // Log unauthorized access attempt in user action audit
-        let _ = log_player_action_audit(ctx, &format!("Unauthorized attempt of admin tool: Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender));
-
-        // Log unauthorized access attempt
-        log::warn!("SECURITY: Unauthorized admin tool attempt - Action: [{}] by user: [{:?}]", "cleanup_inactive_players", ctx.sender);
+        // Log unauthorized access attempt using security audit
+        let _ = log_security_audit(
+            ctx,
+            &format!("Unauthorized admin tool attempt - Action: [cleanup_inactive_players] by user: [{:?}]", ctx.sender),
+        );
         return;
     }
 

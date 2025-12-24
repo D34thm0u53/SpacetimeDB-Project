@@ -391,8 +391,16 @@ fn create_player_account(ctx: &ReducerContext, identity: Identity, username: Str
     })
         .map_err(|e| format!("Failed to create PlayerAccount: {:?}", e))?;
 
-
-    
+    // Audit the account creation
+    let _ = log_player_action_audit(
+        ctx,
+        &format!(
+            "Created PlayerAccount [{}] for identity [{}] with username [{}]",
+            player_account.get_id(),
+            identity,
+            username
+        ),
+    );
     
     Ok(player_account)
 }
@@ -453,15 +461,17 @@ pub fn set_username(ctx: &ReducerContext, t_username: String) -> Result<(), Stri
     }
     
     let mut requesting_user_account = dsl.get_player_account_by_identity(&ctx.sender)?;
+    let old_username = requesting_user_account.username.clone();
     requesting_user_account.username = normalised_username.clone();
     
 
     log_player_action_audit(
         ctx,
         &format!(
-            "Player [{}] (Identity: [{}]) set username to [{}]",
+            "Player [{}] (Identity: [{}]) changed username from [{}] to [{}]",
             &requesting_user_account.get_id(),
             &requesting_user_account.get_identity(),
+            &old_username,
             &normalised_username
         ),
     )?;
